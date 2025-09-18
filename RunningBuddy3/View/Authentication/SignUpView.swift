@@ -42,12 +42,6 @@ struct SignUpView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 20) {
-                // 앱 아이콘
-                Image(systemName: "figure.run")
-                    .font(.system(size: 60))
-                    .foregroundColor(.white)
-                    .padding(.bottom, 20)
-
                 // 제목
                 Text("회원가입")
                     .font(.largeTitle)
@@ -61,8 +55,10 @@ struct SignUpView: View {
                             .frame(width: 20)
                         TextField("", text: $email)
                             .foregroundColor(.white)
-                            .autocapitalization(.none)
-                            .textContentType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .keyboardType(.emailAddress)
+                            .textContentType(.oneTimeCode)
                     }
                     .padding()
                     .background(
@@ -80,7 +76,7 @@ struct SignUpView: View {
                             .frame(width: 20)
                         SecureField("", text: $password)
                             .foregroundColor(.white)
-                            .textContentType(.newPassword)
+                            .textContentType(.oneTimeCode)
                     }
                     .padding()
                     .background(
@@ -93,18 +89,12 @@ struct SignUpView: View {
                     )
 
                     HStack {
-                        Image(systemName: "lock")
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 20)
-                        Image(systemName: "equal")
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 20)
                         Image(systemName: "lock.fill")
                             .foregroundColor(.white.opacity(0.8))
                             .frame(width: 20)
                         SecureField("", text: $confirmPassword)
                             .foregroundColor(.white)
-                            .textContentType(.newPassword)
+                            .textContentType(.oneTimeCode)
                     }
                     .padding()
                     .background(
@@ -128,7 +118,7 @@ struct SignUpView: View {
                             Image(systemName: "questionmark.circle")
                                 .foregroundColor(.white.opacity(0.8))
                                 .frame(width: 20)
-                            Text(selectedSecurityQuestion.isEmpty ? "보안질문을 선택하세요" : selectedSecurityQuestion)
+                            Text(selectedSecurityQuestion.isEmpty ? "" : selectedSecurityQuestion)
                                 .foregroundColor(selectedSecurityQuestion.isEmpty ? .white.opacity(0.6) : .white)
                                 .multilineTextAlignment(.leading)
                             Spacer()
@@ -152,9 +142,11 @@ struct SignUpView: View {
                         Image(systemName: "key")
                             .foregroundColor(.white.opacity(0.8))
                             .frame(width: 20)
-                        TextField("보안질문 답변", text: $securityAnswer)
+                        TextField("", text: $securityAnswer)
                             .foregroundColor(.white)
-                            .textContentType(.none)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .textContentType(.oneTimeCode)
                     }
                     .padding()
                     .background(
