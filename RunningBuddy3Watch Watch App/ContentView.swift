@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  RunningBuddy3
+//  RunningBuddy3Watch Watch App
 //
 //  Created by 배용석 on 9/18/25.
 //

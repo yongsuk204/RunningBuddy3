@@ -6,8 +6,43 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		BBA989892E7B1E2E000253C4 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = BBA989882E7B1E2E000253C4 /* FirebaseAnalytics */; };
+		BBA9898B2E7B1E2E000253C4 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BBA9898A2E7B1E2E000253C4 /* FirebaseAuth */; };
+		BBA9898D2E7B1E2E000253C4 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = BBA9898C2E7B1E2E000253C4 /* FirebaseCore */; };
+		BBA9898F2E7B1E2E000253C4 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = BBA9898E2E7B1E2E000253C4 /* FirebaseDatabase */; };
+		BBA989912E7B1E2E000253C4 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BBA989902E7B1E2E000253C4 /* FirebaseFirestore */; };
+		BBA989932E7B1E2E000253C4 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = BBA989922E7B1E2E000253C4 /* FirebaseFunctions */; };
+		BBA989A22E7B1E50000253C4 /* RunningBuddy3Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = BBA989982E7B1E4E000253C4 /* RunningBuddy3Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BBA989A02E7B1E50000253C4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BBA989702E7B1DC0000253C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BBA989972E7B1E4E000253C4;
+			remoteInfo = "RunningBuddy3Watch Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BBA989A62E7B1E50000253C4 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				BBA989A22E7B1E50000253C4 /* RunningBuddy3Watch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		BBA989782E7B1DC0000253C4 /* RunningBuddy3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RunningBuddy3.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBA989982E7B1E4E000253C4 /* RunningBuddy3Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RunningBuddy3Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +51,28 @@
 			path = RunningBuddy3;
 			sourceTree = "<group>";
 		};
+		BBA989992E7B1E4E000253C4 /* RunningBuddy3Watch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "RunningBuddy3Watch Watch App";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		BBA989752E7B1DC0000253C4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BBA989892E7B1E2E000253C4 /* FirebaseAnalytics in Frameworks */,
+				BBA9898D2E7B1E2E000253C4 /* FirebaseCore in Frameworks */,
+				BBA9898F2E7B1E2E000253C4 /* FirebaseDatabase in Frameworks */,
+				BBA989932E7B1E2E000253C4 /* FirebaseFunctions in Frameworks */,
+				BBA989912E7B1E2E000253C4 /* FirebaseFirestore in Frameworks */,
+				BBA9898B2E7B1E2E000253C4 /* FirebaseAuth in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BBA989952E7B1E4E000253C4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +86,8 @@
 			isa = PBXGroup;
 			children = (
 				BBA9897A2E7B1DC0000253C4 /* RunningBuddy3 */,
+				BBA989992E7B1E4E000253C4 /* RunningBuddy3Watch Watch App */,
+				BBA989872E7B1E2E000253C4 /* Frameworks */,
 				BBA989792E7B1DC0000253C4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +96,16 @@
 			isa = PBXGroup;
 			children = (
 				BBA989782E7B1DC0000253C4 /* RunningBuddy3.app */,
+				BBA989982E7B1E4E000253C4 /* RunningBuddy3Watch Watch App.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		BBA989872E7B1E2E000253C4 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,19 +118,49 @@
 				BBA989742E7B1DC0000253C4 /* Sources */,
 				BBA989752E7B1DC0000253C4 /* Frameworks */,
 				BBA989762E7B1DC0000253C4 /* Resources */,
+				BBA989A62E7B1E50000253C4 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BBA989A12E7B1E50000253C4 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				BBA9897A2E7B1DC0000253C4 /* RunningBuddy3 */,
 			);
 			name = RunningBuddy3;
 			packageProductDependencies = (
+				BBA989882E7B1E2E000253C4 /* FirebaseAnalytics */,
+				BBA9898A2E7B1E2E000253C4 /* FirebaseAuth */,
+				BBA9898C2E7B1E2E000253C4 /* FirebaseCore */,
+				BBA9898E2E7B1E2E000253C4 /* FirebaseDatabase */,
+				BBA989902E7B1E2E000253C4 /* FirebaseFirestore */,
+				BBA989922E7B1E2E000253C4 /* FirebaseFunctions */,
 			);
 			productName = RunningBuddy3;
 			productReference = BBA989782E7B1DC0000253C4 /* RunningBuddy3.app */;
+			productType = "com.apple.product-type.application";
+		};
+		BBA989972E7B1E4E000253C4 /* RunningBuddy3Watch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BBA989A32E7B1E50000253C4 /* Build configuration list for PBXNativeTarget "RunningBuddy3Watch Watch App" */;
+			buildPhases = (
+				BBA989942E7B1E4E000253C4 /* Sources */,
+				BBA989952E7B1E4E000253C4 /* Frameworks */,
+				BBA989962E7B1E4E000253C4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BBA989992E7B1E4E000253C4 /* RunningBuddy3Watch Watch App */,
+			);
+			name = "RunningBuddy3Watch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "RunningBuddy3Watch Watch App";
+			productReference = BBA989982E7B1E4E000253C4 /* RunningBuddy3Watch Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -83,6 +176,9 @@
 					BBA989772E7B1DC0000253C4 = {
 						CreatedOnToolsVersion = 26.0;
 					};
+					BBA989972E7B1E4E000253C4 = {
+						CreatedOnToolsVersion = 26.0;
+					};
 				};
 			};
 			buildConfigurationList = BBA989732E7B1DC0000253C4 /* Build configuration list for PBXProject "RunningBuddy3" */;
@@ -94,18 +190,29 @@
 			);
 			mainGroup = BBA9896F2E7B1DC0000253C4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BBA989792E7B1DC0000253C4 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				BBA989772E7B1DC0000253C4 /* RunningBuddy3 */,
+				BBA989972E7B1E4E000253C4 /* RunningBuddy3Watch Watch App */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		BBA989762E7B1DC0000253C4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BBA989962E7B1E4E000253C4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +229,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BBA989942E7B1E4E000253C4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BBA989A12E7B1E50000253C4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BBA989972E7B1E4E000253C4 /* RunningBuddy3Watch Watch App */;
+			targetProxy = BBA989A02E7B1E50000253C4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BBA989812E7B1DC1000253C4 /* Debug */ = {
@@ -256,11 +378,14 @@
 				DEVELOPMENT_TEAM = 6P4RF6HNAN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RunningBuddy;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -288,11 +413,14 @@
 				DEVELOPMENT_TEAM = 6P4RF6HNAN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RunningBuddy;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -307,6 +435,72 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BBA989A42E7B1E50000253C4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6P4RF6HNAN;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RunningBuddy3Watch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.laxdin24.RunningBuddy3;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.laxdin24.RunningBuddy3.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		BBA989A52E7B1E50000253C4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6P4RF6HNAN;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RunningBuddy3Watch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.laxdin24.RunningBuddy3;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.laxdin24.RunningBuddy3.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -331,7 +525,60 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		BBA989A32E7B1E50000253C4 /* Build configuration list for PBXNativeTarget "RunningBuddy3Watch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBA989A42E7B1E50000253C4 /* Debug */,
+				BBA989A52E7B1E50000253C4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BBA989882E7B1E2E000253C4 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		BBA9898A2E7B1E2E000253C4 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		BBA9898C2E7B1E2E000253C4 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		BBA9898E2E7B1E2E000253C4 /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		BBA989902E7B1E2E000253C4 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		BBA989922E7B1E2E000253C4 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBA989862E7B1E0F000253C4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BBA989702E7B1DC0000253C4 /* Project object */;
 }

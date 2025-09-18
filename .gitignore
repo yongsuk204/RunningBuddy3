@@ -1,0 +1,23 @@
+# Firebase 설정 파일 (민감한 API 키 포함)
+GoogleService-Info.plist
+
+# 보안 설정 파일
+Config.swift
+
+# Apple Developer 인증서 및 키 파일
+*.p8
+
+# Xcode 프로젝트 파일
+*.xcodeproj
+
+# Xcode 사용자별 설정
+*.xcuserdata
+xcuserdata/
+*.xcuserdatad
+
+# 빌드 결과물
+DerivedData/
+*.xcworkspace/xcshareddata/
+
+# 환경 변수
+.env
