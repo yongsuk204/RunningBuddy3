@@ -12,7 +12,7 @@ struct LoginView: View {
     @State private var password = ""
     // 화면 전환 상태 관리
     @State private var showingSignUp = false
-    @State private var showingResetPassword = false
+    @State private var showingFindEmail = false
     
     // MARK: - Body
     
@@ -114,8 +114,8 @@ struct LoginView: View {
                             Text("|")
                                 .foregroundColor(.white.opacity(0.5))
                             
-                            Button("비밀번호 재설정") {
-                                showingResetPassword = true
+                            Button("아이디 찾기") {
+                                showingFindEmail = true
                             }
                             .foregroundColor(.white.opacity(0.9))
                         }
@@ -133,19 +133,8 @@ struct LoginView: View {
             .navigationDestination(isPresented: $showingSignUp) {
                 SignUpView()
             }
-            .alert("비밀번호 재설정", isPresented: $showingResetPassword) {
-                TextField("이메일", text: $email)
-                    .autocapitalization(.none)
-                
-                Button("취소", role: .cancel) { }
-                
-                Button("전송") {
-                    Task {
-                        await authManager.sendPasswordReset(email: email)
-                    }
-                }
-            } message: {
-                Text("비밀번호 재설정 링크를 이메일로 전송합니다.")
+            .navigationDestination(isPresented: $showingFindEmail) {
+                FindEmailView()
             }
             .overlay {
                 if authManager.isLoading {

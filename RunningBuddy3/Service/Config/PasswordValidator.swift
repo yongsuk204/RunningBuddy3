@@ -51,11 +51,6 @@ struct PasswordValidator {
         }
     }
 
-    // 1차, 2차 비밀번호 일치 확인
-    static func passwordsMatch(_ password: String, _ confirmPassword: String) -> Bool {
-        return password == confirmPassword && !password.isEmpty
-    }
-
     // MARK: - Private Methods
 
     // 대문자 포함 여부

@@ -9,8 +9,11 @@ struct UserData: Codable {
     // Purpose: Firebase Auth에서 생성된 고유 사용자 ID
     let userId: String
 
-    // Purpose: 사용자 이메일 주소
+    // Purpose: 해시화된 이메일 (보안 및 중복 체크용)
     let email: String
+
+    // Purpose: 해시화된 전화번호 (보안 및 중복 체크용)
+    let phoneNumber: String
 
     // Purpose: 계정 생성 날짜
     let createdAt: Date
@@ -24,22 +27,24 @@ struct UserData: Codable {
     // MARK: - Initialization
 
     // Purpose: 사용자 데이터 생성 (회원가입 시에는 현재 시간, Firestore에서 읽을 때는 원본 시간 사용)
-    init(userId: String, email: String, securityQuestion: String, hashedSecurityAnswer: String, createdAt: Date = Date()) {
+    init(userId: String, email: String, phoneNumber: String, securityQuestion: String, hashedSecurityAnswer: String, createdAt: Date = Date()) {
         self.userId = userId
         self.email = email
+        self.phoneNumber = phoneNumber
         self.createdAt = createdAt
         self.securityQuestion = securityQuestion
         self.hashedSecurityAnswer = hashedSecurityAnswer
     }
 
 
-    // MARK: - Firestore Conversion
+    // MARK: - Firestore Conversion / Firestore와 Swift 객체 간의 직렬화/역직렬화를 담당하는 핵심
 
     // Purpose: Firestore 저장을 위한 딕셔너리 변환
     func toDictionary() -> [String: Any] {
         return [
             "userId": userId,
             "email": email,
+            "phoneNumber": phoneNumber,
             "createdAt": Timestamp(date: createdAt),
             "securityQuestion": securityQuestion,
             "hashedSecurityAnswer": hashedSecurityAnswer
@@ -50,6 +55,7 @@ struct UserData: Codable {
     static func fromDictionary(_ data: [String: Any]) -> UserData? {
         guard let userId = data["userId"] as? String,
               let email = data["email"] as? String,
+              let phoneNumber = data["phoneNumber"] as? String,
               let timestamp = data["createdAt"] as? Timestamp,
               let securityQuestion = data["securityQuestion"] as? String,
               let hashedSecurityAnswer = data["hashedSecurityAnswer"] as? String else {
@@ -62,6 +68,7 @@ struct UserData: Codable {
         let userData = UserData(
             userId: userId,
             email: email,
+            phoneNumber: phoneNumber,
             securityQuestion: securityQuestion,
             hashedSecurityAnswer: hashedSecurityAnswer,
             createdAt: originalCreatedAt

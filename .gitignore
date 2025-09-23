@@ -3,6 +3,7 @@ GoogleService-Info.plist
 
 # 보안 설정 파일
 Config.swift
+SecurityService.swift
 
 # Apple Developer 인증서 및 키 파일
 *.p8

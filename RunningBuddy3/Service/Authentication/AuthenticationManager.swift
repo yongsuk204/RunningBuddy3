@@ -4,6 +4,20 @@ import FirebaseFirestore
 import Combine
 
 // Purpose: Firebase Authentication 관리 및 사용자 인증 상태 처리
+// MARK: - 함수 목록
+/*
+ * Authentication State
+ * - setupAuthStateListener(): Firebase 인증 상태 변경 감지 설정
+ *
+ * Authentication Methods
+ * - signUp(): 이메일/비밀번호 회원가입 (UI에서 유효성 검사 완료 후 호출)
+ * - signIn(): 이메일/비밀번호 로그인
+ * - signOut(): 로그아웃 처리
+ * - sendPasswordReset(): 비밀번호 재설정 이메일 발송
+ *
+ * Error Handling
+ * - handleAuthError(): Firebase Auth 에러를 한글 메시지로 변환
+ */
 class AuthenticationManager: ObservableObject {
 
     // MARK: - Published Properties
@@ -60,8 +74,8 @@ class AuthenticationManager: ObservableObject {
 
     // MARK: - Authentication Methods
 
-    // Purpose: 이메일/비밀번호와 보안질문으로 회원가입
-    func signUp(email: String, password: String, securityQuestion: String?, securityAnswer: String?) async {
+    // Purpose: 이메일/비밀번호 회원가입
+    func signUp(email: String, password: String, phoneNumber: String, securityQuestion: String?, securityAnswer: String?) async {
         // Step 1: 로딩 상태 시작
         await MainActor.run {
             isLoading = true
@@ -69,7 +83,7 @@ class AuthenticationManager: ObservableObject {
         }
 
         do {
-            // Step 2: Firebase 회원가입 시도
+            // Step 2: Firebase 회원가입 시도 (UI에서 유효성 검사 완료됨)
             let result = try await Auth.auth().createUser(withEmail: email, password: password)
 
             // Step 3: 사용자 정보를 Firestore에 저장
@@ -77,6 +91,7 @@ class AuthenticationManager: ObservableObject {
                 try await userService.saveUserData(
                     userId: result.user.uid,
                     email: email,
+                    phoneNumber: phoneNumber,
                     securityQuestion: securityQuestion!,
                     securityAnswer: securityAnswer!
                 )
@@ -88,18 +103,35 @@ class AuthenticationManager: ObservableObject {
                 return
             }
 
-            // Step 4: 성공 로그
+            // Step 4: publicdata 컬렉션에 해시된 이메일과 전화번호 저장
+            do {
+                try await userService.saveEmailToPublicData(email)
+                print("PublicData에 이메일 저장 성공")
+            } catch {
+                // publicdata 저장 실패는 치명적이지 않으므로 로그만 남기고 진행
+                print("PublicData 이메일 저장 실패: \(error.localizedDescription)")
+            }
+
+            do {
+                try await userService.savePhoneNumberToPublicData(phoneNumber)
+                print("PublicData에 전화번호 저장 성공")
+            } catch {
+                // publicdata 저장 실패는 치명적이지 않으므로 로그만 남기고 진행
+                print("PublicData 전화번호 저장 실패: \(error.localizedDescription)")
+            }
+
+            // Step 5: 성공 로그
             print("회원가입 성공: \(result.user.email ?? "")")
 
         } catch {
-            // Step 5: 에러 처리
+            // Step 6: 에러 처리
             await MainActor.run {
                 self.errorMessage = self.handleAuthError(error)
             }
             print("회원가입 실패: \(error.localizedDescription)")
         }
 
-        // Step 6: 로딩 상태 종료
+        // Step 7: 로딩 상태 종료
         await MainActor.run {
             isLoading = false
         }
