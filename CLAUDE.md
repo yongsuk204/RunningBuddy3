@@ -49,31 +49,50 @@ The project follows a modular MVVM architecture with clear separation of concern
   - `FirebaseManager.swift` - Singleton for Firebase service access
 
 - **View/** - SwiftUI views organized by feature
-  - `Authentication/` - Login and signup views
+  - `Authentication/` - Modal-based authentication system
+    - `SignUpview/` - Sequential signup flow with individual modals
+    - `LoginView/` - Login interface
   - `Main/` - Main app navigation
   - `Profile/` - User profile views
   - `Running/` - Running-related views
 
 - **Service/** - Business logic and external service integration
   - `Authentication/AuthenticationManager.swift` - Firebase Auth wrapper with state management
-  - `User/UserService.swift` - Firestore user data management
-  - `Config/` - Security and configuration services
-    - `Config.swift` - App configuration constants
-    - `SecurityService.swift` - Password hashing and security
-    - `PasswordValidator.swift` - Password validation logic
+  - `User/UserService.swift` - Firestore user data management and hashing coordination
+  - `Config/` - Validation and security services
+    - `SecurityService.swift` - SHA-512 hashing with salt/pepper
+    - `EmailValidator.swift` - RFC-compliant email validation
+    - `PhoneNumberValidator.swift` - Korean phone number validation and formatting
+    - `PasswordValidator.swift` - Password policy enforcement
 
 - **DataModel/** - Data models and entities
-  - `User/UserData.swift` - User model with Firestore serialization
+  - `User/UserData.swift` - User model with Firestore serialization (all sensitive data hashed)
 
 ### Key Architectural Patterns
 
-1. **Singleton Services**: Core services (`FirebaseManager`, `UserService`, `SecurityService`) use singleton pattern for app-wide state management
+1. **Modal-Based UI Flow**: Authentication uses sequential modals with state management through `SignUpViewModel`
+   - Steps: Email → Password → Phone Number → Security Question → Completion
+   - Each modal handles its own validation and real-time feedback
+   - Debounced input validation (0.5s delay) for API calls
 
-2. **Observable Objects**: Authentication and state management use `@Published` properties with Combine for reactive UI updates
+2. **Singleton Services**: Core services use singleton pattern for app-wide state management
+   - `FirebaseManager` - Firebase service access
+   - `UserService` - Data management and hashing coordination
+   - `SecurityService` - Cryptographic operations
+   - Individual validators for email, phone, and password
 
-3. **Async/Await**: All Firebase operations use Swift's modern concurrency model
+3. **Security-First Data Storage**: All PII is hashed before storage
+   - Emails and phone numbers hashed with SHA-512 + salt + pepper
+   - Hashed values used as Firestore document IDs for efficient duplicate checking
+   - `publicdata` collection for duplicate checking without exposing actual values
+   - `users` collection for full user profiles (all hashed)
 
-4. **Security Layer**: Custom security service handles password hashing with salt/pepper before storage
+4. **Real-time Validation Pattern**: UI modals perform comprehensive validation
+   - Format validation → API duplicate check → Visual feedback
+   - ValidationFeedbackIcon shows status (none/checking/valid/invalid)
+   - Form progression blocked until current step validates
+
+5. **Async/Await**: All Firebase operations use Swift's modern concurrency model with proper error handling
 
 ## Firebase Integration
 
@@ -83,14 +102,16 @@ The project follows a modular MVVM architecture with clear separation of concern
 
 ### Firebase Services Used
 - **Authentication**: Email/password authentication
-- **Firestore**: User data and profile storage
-- **Realtime Database**: Available for real-time features
+- **Firestore**: Two-collection design for security
+  - `users` collection: Complete user profiles (hashed data)
+  - `publicdata` collection: Duplicate checking (document IDs are hashed emails/phones)
 
-### Data Flow
-1. User authentication through `AuthenticationManager`
-2. User data persistence through `UserService`
-3. Security validation through `SecurityService`
-4. All Firebase access centralized through `FirebaseManager`
+### Data Flow Architecture
+1. **UI Validation**: Modals perform real-time validation with debouncing
+2. **Duplicate Checking**: Hash input → query `publicdata` collection by document ID
+3. **User Registration**: `AuthenticationManager` → `UserService` → `SecurityService` hashing → Firestore
+4. **Security Layer**: All sensitive data hashed in `UserService` before storage
+5. **State Management**: Reactive UI updates through `@Published` properties
 
 ## Security Considerations
 
@@ -101,27 +122,65 @@ The project follows a modular MVVM architecture with clear separation of concern
 
 ## Working with the Codebase
 
-### Adding New Features
-1. Create view files in appropriate `View/` subdirectory
-2. Add service logic in `Service/` layer
-3. Define data models in `DataModel/`
-4. Follow existing patterns for Firebase integration
+### Authentication System Extension
+When adding new signup steps or modifying the authentication flow:
 
-### Code Style
-- Single responsibility principle: One function per file where appropriate
-- Comprehensive inline comments explaining purpose and logic flow
-- SwiftUI declarative style with property wrappers
-- Async/await for all asynchronous operations
+1. **Update SignUpStep enum** in `SignUpViewModel` with new case
+2. **Add validation state** to `ValidationStates` struct
+3. **Create modal component** following existing pattern:
+   - Validator service in `Service/Config/`
+   - Modal view with real-time validation and debouncing
+   - Integration with `ValidationFeedbackIcon`
+4. **Update SignUpView** switch statement for new modal
+5. **Modify UserService** if new data fields require storage
+6. **Update CompletionModal** to display new information
 
-### Testing Approach
-- Test in Xcode 16.4 before committing changes
-- Verify Firebase operations in development environment
-- Check authentication flows end-to-end
-- Validate security service hashing functions
+### Validation Pattern Implementation
+All input validation follows this pattern:
+```swift
+// Real-time format validation
+guard validator.isBasicValidFormat(input) else {
+    viewModel.validationStates.fieldStatus = .none
+    return
+}
+
+// Set checking state
+viewModel.validationStates.fieldStatus = .checking
+
+// Debounced API validation (0.5s timer)
+timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+    Task { @MainActor in
+        // Detailed validation + duplicate check
+        let result = validator.validateField(input)
+        let exists = try await userService.checkFieldInPublicData(input)
+        viewModel.validationStates.fieldStatus = result.isValid && !exists ? .valid : .invalid
+    }
+}
+```
+
+### Security Data Handling
+- **Never store plaintext PII** - all emails, phones, security answers are hashed
+- **Hashing happens in UserService** layer, not in UI or AuthenticationManager
+- **Use document IDs for duplicate checking** - hash the input and query by document ID
+- **Salt + Pepper pattern** - SecurityService handles cryptographic operations
+
+### Code Style Conventions
+- **Purpose comments**: Every property and function has a "Purpose:" comment explaining its role
+- **Step-by-step comments**: Complex functions break down logic with numbered steps
+- **Korean text in UI**: User-facing strings are in Korean, code/comments in English
+- **Modular structure**: One validator per input type, one modal per signup step
+
+### Testing Authentication Flows
+- Test all signup steps in sequence (email → password → phone → security → completion)
+- Verify ValidationFeedbackIcon states (none → checking → valid/invalid)
+- Test duplicate checking with existing data
+- Validate that all hashing occurs properly before Firestore storage
+- Check that `publicdata` collection entries are created for duplicate checking
 
 ## Current Development Status
 
-- Basic authentication (login/signup) implemented
-- User data model and Firestore integration complete
-- Security service with hashing implemented
-- watchOS app structure initialized
+- **Complete modal-based signup flow**: Email, password, phone number, security question
+- **Real-time validation system**: Debounced API calls with visual feedback
+- **Security-first data architecture**: SHA-512 hashing with salt/pepper
+- **Duplicate checking system**: Efficient hash-based lookups in `publicdata` collection
+- **Korean phone number support**: Formatting and validation for 010/011/016/017/018/019 numbers
