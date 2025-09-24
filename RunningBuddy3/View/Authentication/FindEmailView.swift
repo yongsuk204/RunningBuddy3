@@ -146,7 +146,6 @@ struct FindEmailView: View {
         .padding(.horizontal)
     }
 
-
     // Purpose: 완료 단계 뷰
     private var completedView: some View {
         VStack(spacing: 15) {
@@ -257,11 +256,10 @@ struct FindEmailView: View {
     private func searchEmails() async {
         isLoading = true
 
-        // publicdata 컬렉션이 제거되어 이메일 검색 기능 비활성화
+        // 이메일 찾기 기능은 현재 사용할 수 없습니다
         alertMessage = "이메일 찾기 기능은 현재 사용할 수 없습니다"
         showingAlert = true
 
         isLoading = false
     }
-
 }

@@ -89,7 +89,7 @@ struct EmailInputModal: View {
         .alert("이메일 입력", isPresented: $showingEmailInfo) {
             Button("확인") { }
         } message: {
-            Text("\n• 이메일로 로그인 및 비밀번호를 잊으셨을 때 도움을 받을 수 있습니다\n• 이메일을 주고 받을 수 있는 올바른 이메일 형식으로 입력해주세요\n• 예시) user@example.com")
+            Text("\n• 허용된 이메일 서비스: gmail, naver, daum, nate, yahoo\n• 예시) user@gmail.com")
         }
     }
 

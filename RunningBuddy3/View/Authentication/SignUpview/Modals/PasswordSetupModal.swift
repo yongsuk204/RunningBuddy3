@@ -38,7 +38,7 @@ struct PasswordSetupModal: View {
         VStack(spacing: 24) {
             headerSection
 
-            VStack(spacing: 24) {
+            VStack(spacing: 10) {
                 passwordInputSection
                 confirmPasswordSection
             }
@@ -61,7 +61,7 @@ struct PasswordSetupModal: View {
         VStack(spacing: 8) {
             HStack {
                 Spacer()
-                Text("비밀번호 설정")
+                Text("비밀번호")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
@@ -74,7 +74,10 @@ struct PasswordSetupModal: View {
                         .foregroundColor(.white.opacity(0.6))
                 }
             }
-
+            Text("안전한 비밀번호를 설정해주세요")
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
         }
         .alert("비밀번호 설정", isPresented: $showingPasswordInfo) {
             Button("확인") { }

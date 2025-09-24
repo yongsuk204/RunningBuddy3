@@ -112,13 +112,6 @@ class AuthenticationManager: ObservableObject {
                 print("PublicData 이메일 저장 실패: \(error.localizedDescription)")
             }
 
-            do {
-                try await userService.savePhoneNumberToPublicData(phoneNumber)
-                print("PublicData에 전화번호 저장 성공")
-            } catch {
-                // publicdata 저장 실패는 치명적이지 않으므로 로그만 남기고 진행
-                print("PublicData 전화번호 저장 실패: \(error.localizedDescription)")
-            }
 
             // Step 5: 성공 로그
             print("회원가입 성공: \(result.user.email ?? "")")

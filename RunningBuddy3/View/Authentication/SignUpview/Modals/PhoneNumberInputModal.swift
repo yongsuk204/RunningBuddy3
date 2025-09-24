@@ -23,9 +23,6 @@ struct PhoneNumberInputModal: View {
     // Purpose: Firebase 인증 관리자 (회원가입 처리용)
     @EnvironmentObject var authManager: AuthenticationManager
 
-    // Purpose: 전화번호 중복 체크를 위한 Firestore 사용자 서비스 (모달 내부에서만 사용)
-    private let userService = UserService.shared
-
     // Purpose: 전화번호 형식 검증 및 포맷팅 서비스 (모달 내부에서만 사용)
     private let phoneNumberValidator = PhoneNumberValidator.shared
 
@@ -149,7 +146,7 @@ struct PhoneNumberInputModal: View {
 
     // MARK: - Helper Methods
 
-    // Purpose: 전화번호 변경 시 포맷팅, 유효성 검사 및 중복 체크 (디바운싱 포함)
+    // Purpose: 전화번호 변경 시 포맷팅 및 유효성 검사 (디바운싱 포함)
     private func handlePhoneNumberChange(_ newNumber: String) {
         // 이전 타이머 취소
         phoneCheckTimer?.invalidate()
@@ -170,24 +167,14 @@ struct PhoneNumberInputModal: View {
         // 체크 중 상태로 변경
         viewModel.validationStates.phoneNumberStatus = .checking
 
-        // 0.5초 디바운싱 후 상세 검증 및 중복 체크 실행
+        // 0.5초 디바운싱 후 상세 검증 실행
         phoneCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
             Task { @MainActor in
                 // Step 3: 전화번호 형식 상세 검증
                 let validationResult = phoneNumberValidator.validatePhoneNumber(formattedNumber)
 
-                if !validationResult.isValid {
-                    viewModel.validationStates.phoneNumberStatus = .invalid
-                    return
-                }
-
-                // Step 4: 중복 체크 (publicdata 컬렉션 조회)
-                do {
-                    let exists = try await userService.checkPhoneNumberInPublicData(formattedNumber)
-                    viewModel.validationStates.phoneNumberStatus = exists ? .invalid : .valid
-                } catch {
-                    viewModel.validationStates.phoneNumberStatus = .none
-                }
+                // 유효성 검사 결과에 따라 상태 설정
+                viewModel.validationStates.phoneNumberStatus = validationResult.isValid ? .valid : .invalid
             }
         }
     }

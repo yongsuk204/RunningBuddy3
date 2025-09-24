@@ -12,10 +12,13 @@ import FirebaseAuth
  * - updateUserData(): 사용자 데이터 업데이트
  * - deleteUserData(): 사용자 데이터 삭제
  *
- * Public Data Methods
+ * Email Public Data Methods (중복 가입 방지용)
  * - checkEmailInPublicData(): publicdata 컬렉션에서 해시된 이메일 문서 ID로 중복 체크
  * - saveEmailToPublicData(): publicdata 컬렉션에 해시된 이메일을 문서 ID로 저장
  * - deleteEmailFromPublicData(): publicdata 컬렉션에서 해시된 이메일 문서 삭제
+ *
+ * Email Recovery Methods
+ * - findEmailByPhoneNumber(): 전화번호로 사용자 이메일 찾기 (이메일 찾기 기능용)
  */
 class UserService {
 
@@ -43,7 +46,9 @@ class UserService {
 
     // MARK: - User Data Management
 
-    // Purpose: 회원가입 시 사용자 정보를 Firestore에 저장 👈
+    // ═══════════════════════════════════════
+    // PURPOSE: 회원가입 시 사용자 정보를 Firestore에 저장 👈
+    // ═══════════════════════════════════════
     func saveUserData(userId: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String) async throws {
         // Step 1: 이메일과 전화번호 해시화
         let hashedEmail = securityService.hashEmail(email)
@@ -71,7 +76,9 @@ class UserService {
         }
     }
 
-    // Purpose: 사용자 ID로 사용자 정보 조회
+    // ═══════════════════════════════════════
+    // PURPOSE: 사용자 ID로 사용자 정보 조회
+    // ═══════════════════════════════════════
     func getUserData(userId: String) async throws -> UserData? {
         do {
             // Step 1: Firestore에서 문서 조회
@@ -98,7 +105,9 @@ class UserService {
         }
     }
 
-    // Purpose: 보안질문 답변 검증
+    // ═══════════════════════════════════════
+    // PURPOSE: 보안질문 답변 검증
+    // ═══════════════════════════════════════
     func verifySecurityAnswer(userId: String, inputAnswer: String) async throws -> Bool {
         // Step 1: 사용자 데이터 조회
         guard let userData = try await getUserData(userId: userId) else {
@@ -112,7 +121,9 @@ class UserService {
         return isValid
     }
 
-    // Purpose: 사용자 데이터 업데이트
+    // ═══════════════════════════════════════
+    // PURPOSE: 사용자 데이터 업데이트
+    // ═══════════════════════════════════════
     func updateUserData(userId: String, updates: [String: Any]) async throws {
         do {
             try await firestore.collection(usersCollection).document(userId).updateData(updates)
@@ -123,7 +134,9 @@ class UserService {
         }
     }
 
-    // Purpose: 사용자 데이터 삭제
+    // ═══════════════════════════════════════
+    // PURPOSE: 사용자 데이터 삭제
+    // ═══════════════════════════════════════
     func deleteUserData(userId: String) async throws {
         do {
             try await firestore.collection(usersCollection).document(userId).delete()
@@ -134,9 +147,11 @@ class UserService {
         }
     }
 
-    // MARK: - Public Data Methods
+    // MARK: - Email Public Data Methods (중복 가입 방지용)
 
-    // Purpose: publicdata 컬렉션에서 해시된 이메일로 중복 체크 (문서 ID로 조회)
+    // ═══════════════════════════════════════
+    // PURPOSE: publicdata 컬렉션에서 해시된 이메일로 중복 체크 (문서 ID로 조회)
+    // ═══════════════════════════════════════
     func checkEmailInPublicData(_ email: String) async throws -> Bool {
         do {
             // Step 1: 이메일 해시화
@@ -160,7 +175,9 @@ class UserService {
         }
     }
 
-    // Purpose: publicdata 컬렉션에 해시된 이메일을 문서 ID로 저장
+    // ═══════════════════════════════════════
+    // PURPOSE: publicdata 컬렉션에 해시된 이메일을 문서 ID로 저장
+    // ═══════════════════════════════════════
     func saveEmailToPublicData(_ email: String) async throws {
         do {
             // Step 1: 이메일 해시화
@@ -183,7 +200,9 @@ class UserService {
         }
     }
 
-    // Purpose: publicdata 컬렉션에서 해시된 이메일 문서 삭제 (회원 탈퇴 시 사용)
+    // ═══════════════════════════════════════
+    // PURPOSE: publicdata 컬렉션에서 해시된 이메일 문서 삭제 (회원 탈퇴 시 사용)
+    // ═══════════════════════════════════════
     func deleteEmailFromPublicData(_ email: String) async throws {
         do {
             // Step 1: 이메일 해시화
@@ -202,71 +221,34 @@ class UserService {
         }
     }
 
-    // MARK: - Phone Number Public Data Methods
 
-    // Purpose: publicdata 컬렉션에서 해시된 전화번호로 중복 체크 (문서 ID로 조회)
-    func checkPhoneNumberInPublicData(_ phoneNumber: String) async throws -> Bool {
+    // MARK: - Email Recovery Methods
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 전화번호로 사용자 이메일 찾기 (이메일 찾기 기능용)
+    // ═══════════════════════════════════════
+    func findEmailByPhoneNumber(_ phoneNumber: String) async throws -> String? {
         do {
             // Step 1: 전화번호 해시화
             let hashedPhoneNumber = securityService.hashPhoneNumber(phoneNumber)
 
-            // Step 2: 해시값을 문서 ID로 사용하여 문서 존재 여부 확인
-            let documentRef = firestore.collection(publicDataCollection).document(hashedPhoneNumber)
-            let document = try await documentRef.getDocument()
+            // Step 2: users 컬렉션에서 해당 전화번호를 가진 사용자 찾기
+            let querySnapshot = try await firestore.collection(usersCollection).getDocuments()
 
-            // Step 3: 문서가 존재하면 true (중복), 없으면 false
-            if document.exists {
-                print("UserService: PublicData 전화번호 중복 확인 - 이미 존재하는 번호")
-                return true
-            } else {
-                print("UserService: PublicData 전화번호 중복 확인 - 사용 가능한 번호")
-                return false
+            for document in querySnapshot.documents {
+                if let userData = UserData.fromDictionary(document.data()),
+                   userData.phoneNumber == hashedPhoneNumber {
+                    print("UserService: 전화번호로 사용자 찾기 성공")
+                    return userData.email
+                }
             }
+
+            print("UserService: 해당 전화번호의 사용자를 찾을 수 없음")
+            return nil
+
         } catch {
-            print("UserService: PublicData 전화번호 중복 확인 실패 - \(error.localizedDescription)")
+            print("UserService: 전화번호로 이메일 찾기 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
-        }
-    }
-
-    // Purpose: publicdata 컬렉션에 해시된 전화번호를 문서 ID로 저장
-    func savePhoneNumberToPublicData(_ phoneNumber: String) async throws {
-        do {
-            // Step 1: 전화번호 해시화
-            let hashedPhoneNumber = securityService.hashPhoneNumber(phoneNumber)
-
-            // Step 2: 해시값을 문서 ID로 사용하여 publicdata 컬렉션에 저장
-            let documentRef = firestore.collection(publicDataCollection).document(hashedPhoneNumber)
-
-            let data: [String: Any] = [
-                "createdAt": Timestamp(date: Date())
-            ]
-
-            // Step 3: 문서 저장
-            try await documentRef.setData(data)
-            print("UserService: PublicData 전화번호 저장 성공 - 문서 ID: \(hashedPhoneNumber)")
-
-        } catch {
-            print("UserService: PublicData 전화번호 저장 실패 - \(error.localizedDescription)")
-            throw UserServiceError.saveFailed(error.localizedDescription)
-        }
-    }
-
-    // Purpose: publicdata 컬렉션에서 해시된 전화번호 문서 삭제 (회원 탈퇴 시 사용)
-    func deletePhoneNumberFromPublicData(_ phoneNumber: String) async throws {
-        do {
-            // Step 1: 전화번호 해시화
-            let hashedPhoneNumber = securityService.hashPhoneNumber(phoneNumber)
-
-            // Step 2: 해시값을 문서 ID로 사용하여 publicdata 컬렉션에서 삭제
-            let documentRef = firestore.collection(publicDataCollection).document(hashedPhoneNumber)
-
-            // Step 3: 문서 삭제
-            try await documentRef.delete()
-            print("UserService: PublicData 전화번호 삭제 성공 - 문서 ID: \(hashedPhoneNumber)")
-
-        } catch {
-            print("UserService: PublicData 전화번호 삭제 실패 - \(error.localizedDescription)")
-            throw UserServiceError.deleteFailed(error.localizedDescription)
         }
     }
 
