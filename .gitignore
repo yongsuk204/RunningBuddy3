@@ -1,6 +1,8 @@
 # Firebase 설정 파일 (민감한 API 키 포함)
 GoogleService-Info.plist
 *.log
+.firebaserc
+firebase.json
 
 # 보안 설정 파일
 Config.swift
@@ -11,11 +13,11 @@ SecurityService.swift
 
 # Xcode 프로젝트 파일
 *.xcodeproj
+*.plist
+*.entitlements
 
 # Xcode 사용자별 설정
 *.xcuserdata
-xcuserdata/
-*.xcuserdatad
 
 # 빌드 결과물
 DerivedData/
@@ -23,3 +25,6 @@ DerivedData/
 
 # 환경 변수
 .env
+
+# Firebase Functions (전체 폴더)
+functions/
