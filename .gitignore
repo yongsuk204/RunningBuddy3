@@ -1,5 +1,6 @@
 # Firebase 설정 파일 (민감한 API 키 포함)
 GoogleService-Info.plist
+*.log
 
 # 보안 설정 파일
 Config.swift
