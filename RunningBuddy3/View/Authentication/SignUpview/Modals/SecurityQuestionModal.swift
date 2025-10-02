@@ -9,6 +9,7 @@ struct SecurityQuestionModal: View {
 
     @ObservedObject var viewModel: SignUpViewModel
     @FocusState private var isAnswerFieldFocused: Bool
+    @State private var showingInfoAlert = false
 
     // 보안질문 목록
     private let securityQuestions = [
@@ -22,27 +23,41 @@ struct SecurityQuestionModal: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             headerSection
             securityQuestionSection
             securityAnswerSection
-            securityGuideSection
             Spacer()
             navigationSection
         }
         .padding(30)
         .background(ModalBackground())
         .padding(.horizontal, 20)
+        .alert("보안 팁", isPresented: $showingInfoAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("• 다른 사람이 쉽게 추측할 수 없는 답변을 입력하세요\n• 답변은 정확히 기억할 수 있는 내용으로 설정하세요\n• 대소문자를 구분하여 정확히 입력해주세요")
+        }
     }
 
     // MARK: - Header Section
 
     private var headerSection: some View {
         VStack(spacing: 8) {
-            Text("보안 질문")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+            HStack(spacing: 8) {
+                Text("보안 질문")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+
+                Button {
+                    showingInfoAlert = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.title2)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+            }
 
             Text("계정 보안을 위한 질문과 답변을 설정해주세요")
                 .font(.subheadline)
@@ -54,16 +69,8 @@ struct SecurityQuestionModal: View {
     // MARK: - Security Question Section
 
     private var securityQuestionSection: some View {
-        VStack(spacing: 12) {
-            // Section title
-            HStack {
-                Text("보안 질문 선택")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Spacer()
-            }
-
-            // Question menu
+        VStack(spacing: 10) {
+                        // Question menu
             Menu {
                 ForEach(securityQuestions, id: \.self) { question in
                     Button(question) {
@@ -104,15 +111,7 @@ struct SecurityQuestionModal: View {
     // MARK: - Security Answer Section
 
     private var securityAnswerSection: some View {
-        VStack(spacing: 12) {
-            // Section title
-            HStack {
-                Text("답변 입력")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Spacer()
-            }
-
+        VStack(spacing: 10) {
             // Answer input field
             HStack {
                 Image(systemName: "key")
@@ -148,44 +147,6 @@ struct SecurityQuestionModal: View {
                 )
             )
             .opacity(viewModel.signUpData.selectedSecurityQuestion.isEmpty ? 0.6 : 1.0)
-        }
-    }
-
-    // MARK: - Security Guide Section
-
-    @ViewBuilder
-    private var securityGuideSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.white.opacity(0.6))
-                Text("보안 팁")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                securityTip(text: "다른 사람이 쉽게 추측할 수 없는 답변을 입력하세요")
-                securityTip(text: "답변은 정확히 기억할 수 있는 내용으로 설정하세요")
-                securityTip(text: "대소문자를 구분하여 정확히 입력해주세요")
-            }
-        }
-        .padding(.horizontal)
-    }
-
-    // MARK: - Security Tip Item
-
-    private func securityTip(text: String) -> some View {
-        HStack(alignment: .top) {
-            Image(systemName: "circle")
-                .font(.system(size: 6))
-                .foregroundColor(.white.opacity(0.4))
-                .padding(.top, 4)
-            Text(text)
-                .font(.caption2)
-                .foregroundColor(.white.opacity(0.6))
-                .multilineTextAlignment(.leading)
         }
     }
 

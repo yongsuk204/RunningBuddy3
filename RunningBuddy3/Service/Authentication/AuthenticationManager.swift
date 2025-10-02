@@ -13,6 +13,7 @@ import Combine
  * - signUp(): 이메일/비밀번호 회원가입 (UI에서 유효성 검사 완료 후 호출)
  * - signIn(): 이메일/비밀번호 로그인
  * - signOut(): 로그아웃 처리
+ * - deleteCurrentAccount(): 현재 계정 삭제 (계정만 정리)
  * - sendPasswordReset(): 비밀번호 재설정 이메일 발송
  *
  * Error Handling
@@ -39,6 +40,9 @@ class AuthenticationManager: ObservableObject {
     // Purpose: Firebase Auth 상태 리스너 핸들
     private var authStateHandle: AuthStateDidChangeListenerHandle?
 
+    // Purpose: 리스너 활성화 플래그 (이메일 찾기 전용)
+    private var isListenerEnabled: Bool = true
+
     // Purpose: Combine cancellables 저장
     private var cancellables = Set<AnyCancellable>()
 
@@ -64,12 +68,39 @@ class AuthenticationManager: ObservableObject {
     private func setupAuthStateListener() {
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in
+                // 리스너가 비활성화되어 있으면 무시
+                guard self?.isListenerEnabled == true else { return }
+
                 // Step 1: 사용자 정보 업데이트
                 self?.currentUser = user
                 // Step 2: 인증 상태 업데이트
                 self?.isAuthenticated = user != nil
             }
         }
+    }
+
+    // Purpose: 리스너 일시 비활성화 (이메일 찾기 SMS 인증용)
+    func disableListener() {
+        isListenerEnabled = false
+    }
+
+    // Purpose: 리스너 다시 활성화
+    func enableListener() {
+        isListenerEnabled = true
+    }
+
+    // Purpose: 현재 로그인된 계정만 삭제 (임시 전화번호 인증 계정 정리용)
+    func deleteCurrentAccount() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(
+                domain: "AuthenticationManager",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "로그인된 사용자가 없습니다."]
+            )
+        }
+
+        try await user.delete()
+        print("✅ 계정 삭제 완료")
     }
 
     // MARK: - Authentication Methods

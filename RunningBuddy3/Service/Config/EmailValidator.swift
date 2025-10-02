@@ -42,19 +42,24 @@ class EmailValidator {
             return .invalid("이메일을 입력해주세요.")
         }
 
-        // Step 2: @ 기호로 분리
+        // Step 2: 공백 포함 여부 체크
+        guard !email.contains(" ") else {
+            return .invalid("이메일에 공백을 포함할 수 없습니다")
+        }
+
+        // Step 3: @ 기호로 분리
         let components = email.split(separator: "@")
         guard components.count == 2 else {
             return .invalid("올바른 이메일 형식이 아닙니다")
         }
 
-        // Step 3: 로컬 파트 길이 검증
+        // Step 4: 로컬 파트 길이 검증
         let localPart = String(components[0])
         guard localPart.count >= minimumLocalPartLength else {
             return .invalid("이메일 아이디는 5자 이상이어야 합니다")
         }
 
-        // Step 4: 도메인 체크
+        // Step 5: 도메인 체크
         let domain = String(components[1]).lowercased()
         guard allowedDomains.contains(domain) else {
             return .invalid("지원하지 않는 이메일 도메인입니다\n(gmail, naver, daum, nate, yahoo만 가능)")

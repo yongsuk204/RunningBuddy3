@@ -16,6 +16,11 @@ struct PasswordValidator {
 
     // 1차 비밀번호만 정책 검증
     static func validatePolicy(_ password: String) -> (isValid: Bool, errorMessage: String) {
+        // 공백 포함 여부 확인
+        if password.contains(" ") {
+            return (false, "비밀번호에 공백을 포함할 수 없습니다")
+        }
+
         var failedRequirements: [String] = []
 
         // 최소 길이 확인

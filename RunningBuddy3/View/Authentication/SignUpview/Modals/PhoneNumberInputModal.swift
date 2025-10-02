@@ -104,7 +104,7 @@ struct PhoneNumberInputModal: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .keyboardType(.numberPad)
-                    .textContentType(.oneTimeCode)
+                    .textContentType(.telephoneNumber)
                     .focused($focusedField, equals: .phoneNumber)
                     .onChange(of: viewModel.signUpData.phoneNumber) { _, newValue in
                         handlePhoneNumberChange(newValue)

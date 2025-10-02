@@ -9,7 +9,6 @@ import Combine
  * - headerSection: 헤더 영역 (제목 및 정보 버튼)
  * - passwordInputSection: 비밀번호 입력 필드
  * - confirmPasswordSection: 비밀번호 확인 입력 필드
- * - passwordMatchFeedback: 비밀번호 일치 여부 피드백 표시
  * - navigationSection: 이전/다음 버튼
  *
  * Validation Methods
@@ -35,7 +34,7 @@ struct PasswordSetupModal: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             headerSection
 
             VStack(spacing: 10) {
@@ -89,7 +88,7 @@ struct PasswordSetupModal: View {
     // MARK: - Password Input Section
 
     private var passwordInputSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             HStack {
                 Image(systemName: "lock")
                     .foregroundColor(.white.opacity(0.8))
@@ -97,7 +96,6 @@ struct PasswordSetupModal: View {
 
                 SecureField("", text: $viewModel.signUpData.password)
                     .foregroundColor(.white)
-                    .textContentType(.oneTimeCode)
                     .focused($focusedField, equals: .password)
                     .onChange(of: viewModel.signUpData.password) { _, newValue in
                         handlePasswordChange(newValue)
@@ -118,7 +116,7 @@ struct PasswordSetupModal: View {
     // MARK: - Confirm Password Section
 
     private var confirmPasswordSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             HStack {
                 Image(systemName: "lock.fill")
                     .foregroundColor(.white.opacity(0.8))
@@ -126,7 +124,6 @@ struct PasswordSetupModal: View {
 
                 SecureField("", text: $viewModel.signUpData.confirmPassword)
                     .foregroundColor(.white)
-                    .textContentType(.oneTimeCode)
                     .focused($focusedField, equals: .confirmPassword)
                     .onChange(of: viewModel.signUpData.confirmPassword) { _, newValue in
                         handleConfirmPasswordChange(newValue)
@@ -140,34 +137,6 @@ struct PasswordSetupModal: View {
             .background(FieldBackground())
         }
     }
-
-    // MARK: - Password Match Feedback
-
-    @ViewBuilder
-    private var passwordMatchFeedback: some View {
-        if !viewModel.signUpData.confirmPassword.isEmpty {
-            HStack {
-                if viewModel.validationStates.confirmPasswordStatus == .valid {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("비밀번호가 일치합니다")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                } else {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.red)
-                    Text("비밀번호가 일치하지 않습니다")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-                Spacer()
-            }
-            .animation(.easeInOut(duration: 0.3), value: viewModel.validationStates.confirmPasswordStatus)
-        }
-    }
-
-    // MARK: - Password Policy Section
-
 
     // MARK: - Navigation Section
 

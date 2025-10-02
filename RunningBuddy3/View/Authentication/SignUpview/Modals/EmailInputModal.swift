@@ -20,9 +20,6 @@ struct EmailInputModal: View {
     // Purpose: 회원가입 전체 상태 및 데이터 관리 (이메일 입력값, 검증 상태 등)
     @ObservedObject var viewModel: SignUpViewModel
 
-    // Purpose: Firebase 인증 관리자 (회원가입 처리용)
-    @EnvironmentObject var authManager: AuthenticationManager
-
     // Purpose: 이메일 중복 체크를 위한 Firestore 사용자 서비스 (모달 내부에서만 사용)
     private let userService = UserService.shared
 
@@ -58,6 +55,9 @@ struct EmailInputModal: View {
         .padding(.horizontal, 20)
         .onAppear {
             focusedField = .email
+        }
+        .onDisappear {
+            emailCheckTimer?.invalidate()
         }
     }
 
@@ -107,7 +107,6 @@ struct EmailInputModal: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .keyboardType(.emailAddress)
-                    .textContentType(.oneTimeCode)
                     .focused($focusedField, equals: .email)
                     .onChange(of: viewModel.signUpData.email) { _, newValue in
                         handleEmailChange(newValue)
@@ -121,49 +120,6 @@ struct EmailInputModal: View {
             .background(FieldBackground())
 
         }
-    }
-
-
-    // MARK: - Validation Feedback Section
-
-    @ViewBuilder
-    private var validationFeedbackSection: some View {
-        VStack(spacing: 8) {
-            switch viewModel.validationStates.emailStatus {
-            case .checking:
-                HStack {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("이메일 중복 확인 중...")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.8))
-                }
-
-            case .valid:
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("사용 가능한 이메일입니다")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                    Spacer()
-                }
-
-            case .invalid:
-                HStack {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.red)
-                    Text("이미 사용 중인 이메일이거나 유효하지 않습니다")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                    Spacer()
-                }
-
-            case .none:
-                EmptyView()
-            }
-        }
-        .animation(.easeInOut(duration: 0.3), value: viewModel.validationStates.emailStatus)
     }
 
     // MARK: - Navigation Section
@@ -195,7 +151,13 @@ struct EmailInputModal: View {
         // 이전 타이머 취소
         emailCheckTimer?.invalidate()
 
-        // 이메일 기본 형식 체크 (실시간 입력용)
+        // Step 1: 공백만 있는 경우 체크
+        guard !newEmail.trimmingCharacters(in: .whitespaces).isEmpty else {
+            viewModel.validationStates.emailStatus = .none
+            return
+        }
+
+        // Step 2: 이메일 기본 형식 체크 (실시간 입력용)
         guard emailValidator.isBasicValidFormat(newEmail) else {
             viewModel.validationStates.emailStatus = .none
             return

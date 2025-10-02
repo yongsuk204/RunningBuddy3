@@ -73,13 +73,6 @@ struct CompletionModal: View {
             )
 
             summaryItem(
-                icon: "lock",
-                title: "비밀번호",
-                value: "●●●●●●●●",
-                status: .valid
-            )
-
-            summaryItem(
                 icon: "phone",
                 title: "전화번호",
                 value: viewModel.signUpData.phoneNumber,
@@ -93,12 +86,6 @@ struct CompletionModal: View {
                 status: .valid
             )
 
-            summaryItem(
-                icon: "key",
-                title: "보안 답변",
-                value: "●●●●●●",
-                status: .valid
-            )
         }
     }
 
