@@ -5,9 +5,8 @@ serviceAccountKey.json
 .firebaserc
 firebase.json
 
-# 보안 설정 파일
-Config.swift
-SecurityService.swift
+# 보안 설정 파일 (Service/Config 폴더의 모든 Swift 파일)
+RunningBuddy3/Service/Config/*.swift
 
 # Apple Developer 인증서 및 키 파일
 *.p8

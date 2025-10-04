@@ -10,6 +10,19 @@ import FirebaseCore
 import FirebaseAuth
 import UserNotifications
 
+// Purpose: SwiftUI 앱 진입점 및 Firebase 초기화 관리
+// MARK: - 함수 목록
+/*
+ * AppDelegate Methods
+ * - application(_:didFinishLaunchingWithOptions:): Firebase 초기화 및 Push Notification 권한 요청
+ * - application(_:didRegisterForRemoteNotificationsWithDeviceToken:): APNs 토큰 등록 성공 시 Firebase에 토큰 전달
+ * - application(_:didFailToRegisterForRemoteNotificationsWithError:): APNs 토큰 등록 실패 처리
+ * - application(_:didReceiveRemoteNotification:fetchCompletionHandler:): Remote Notification 수신 처리
+ *
+ * App Structure
+ * - body: SwiftUI 앱의 UI 계층 구조 정의
+ */
+
 // MARK: - AppDelegate
 
 // Purpose: Firebase 초기화 및 APNs(Apple Push Notification service) 설정을 위한 AppDelegate
