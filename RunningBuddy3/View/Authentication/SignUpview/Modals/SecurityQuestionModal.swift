@@ -6,7 +6,7 @@ import Combine
 struct SecurityQuestionModal: View {
 
     // MARK: - Properties
-
+    ///viewModel 👈 실시간 양방향 바인딩
     @ObservedObject var viewModel: SignUpViewModel
     @FocusState private var isAnswerFieldFocused: Bool
     @State private var showingInfoAlert = false
@@ -127,7 +127,6 @@ struct SecurityQuestionModal: View {
                 .foregroundColor(.white)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled(true)
-                .textContentType(.oneTimeCode)
                 .disabled(viewModel.signUpData.selectedSecurityQuestion.isEmpty)
                 .focused($isAnswerFieldFocused)
 
@@ -171,8 +170,11 @@ struct SecurityQuestionModal: View {
 
     // Purpose: 다음 단계로 진행 가능한지 확인
     private var canProceedToNext: Bool {
+        // 공백 제거 후 유효 문자 확인
+        let trimmedAnswer = viewModel.signUpData.securityAnswer.trimmingCharacters(in: .whitespaces)
+
         return !viewModel.signUpData.selectedSecurityQuestion.isEmpty &&
-               !viewModel.signUpData.securityAnswer.isEmpty &&
-               viewModel.signUpData.securityAnswer.count >= 2 // 최소 2글자 이상
+               trimmedAnswer.count >= 2 &&  // 공백만 입력 방지 + 최소 2글자
+               !viewModel.signUpData.securityAnswer.contains(" ")  // 공백 포함 방지
     }
 }

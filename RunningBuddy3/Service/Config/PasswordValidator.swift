@@ -1,6 +1,17 @@
 import Foundation
 
-// 비밀번호 검증을 담당하는 유틸리티 구조체
+// Purpose: 비밀번호 정책 검증 서비스
+// MARK: - 함수 목록
+/*
+ * Validation Methods
+ * - validatePolicy(): 비밀번호 정책 검증 (길이, 대소문자, 숫자, 특수문자)
+ *
+ * Private Helper Methods
+ * - hasUppercase(): 대문자 포함 여부 확인
+ * - hasLowercase(): 소문자 포함 여부 확인
+ * - hasNumbers(): 숫자 포함 여부 확인
+ * - hasSpecialCharacters(): 특수문자 포함 여부 확인
+ */
 struct PasswordValidator {
 
     // MARK: - Password Policy

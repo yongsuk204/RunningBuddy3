@@ -49,8 +49,7 @@ class UserService {
     // PURPOSE: 회원가입 시 사용자 정보를 Firestore에 저장 👈
     // ═══════════════════════════════════════
     func saveUserData(userId: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String) async throws {
-        // Step 1: 이메일과 전화번호 해시화
-        let hashedEmail = securityService.hashEmail(email)
+        // Step 1: 전화번호 해시화 (이메일은 원본 저장)
         let hashedPhoneNumber = securityService.hashPhoneNumber(phoneNumber)
 
         // Step 2: 보안질문 답변 해시화
@@ -59,7 +58,7 @@ class UserService {
         // Step 3: UserData 객체 생성 👈 UserData() init!!
         let userData = UserData(
             userId: userId,
-            email: hashedEmail,
+            email: email,  // 원본 이메일 저장
             phoneNumber: hashedPhoneNumber,
             securityQuestion: securityQuestion,
             hashedSecurityAnswer: hashedAnswer
@@ -68,7 +67,7 @@ class UserService {
         // Step 4: Firestore에 저장 👈 userData.toDictionary() 상태로 저장!!
         do {
             try await firestore.collection(usersCollection).document(userId).setData(userData.toDictionary())
-            print("UserService: 사용자 데이터 저장 성공 - \(hashedEmail)")
+            print("UserService: 사용자 데이터 저장 성공 - \(email)")
         } catch {
             print("UserService: 사용자 데이터 저장 실패 - \(error.localizedDescription)")
             throw UserServiceError.saveFailed(error.localizedDescription)
@@ -143,7 +142,7 @@ class UserService {
                 throw UserServiceError.userNotFound
             }
 
-            // Step 2: publicdata 컬렉션에서 해시된 이메일 문서 삭제
+            // Step 2: publicdata 컬렉션에서 이메일 문서 삭제 (원본 이메일이 문서 ID)
             let documentRef = firestore.collection(publicDataCollection).document(userData.email)
             try await documentRef.delete()
             print("UserService: PublicData 이메일 삭제 성공")
@@ -161,18 +160,15 @@ class UserService {
     // MARK: - Email Public Data Methods (중복 가입 방지용)
 
     // ═══════════════════════════════════════
-    // PURPOSE: publicdata 컬렉션에서 해시된 이메일로 중복 체크 (문서 ID로 조회)
+    // PURPOSE: publicdata 컬렉션에서 이메일 중복 체크 (문서 ID로 조회)
     // ═══════════════════════════════════════
     func checkEmailInPublicData(_ email: String) async throws -> Bool {
         do {
-            // Step 1: 이메일 해시화
-            let hashedEmail = securityService.hashEmail(email)
-
-            // Step 2: 해시값을 문서 ID로 사용하여 문서 존재 여부 확인
-            let documentRef = firestore.collection(publicDataCollection).document(hashedEmail)
+            // Step 1: 원본 이메일을 문서 ID로 사용하여 문서 존재 여부 확인
+            let documentRef = firestore.collection(publicDataCollection).document(email)
             let document = try await documentRef.getDocument()
 
-            // Step 3: 문서가 존재하면 true (중복), 없으면 false
+            // Step 2: 문서가 존재하면 true (중복), 없으면 false
             if document.exists {
                 print("UserService: PublicData 이메일 중복 확인 - 이미 존재하는 이메일")
                 return true
@@ -187,23 +183,20 @@ class UserService {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: publicdata 컬렉션에 해시된 이메일을 문서 ID로 저장
+    // PURPOSE: publicdata 컬렉션에 이메일을 문서 ID로 저장
     // ═══════════════════════════════════════
     func saveEmailToPublicData(_ email: String) async throws {
         do {
-            // Step 1: 이메일 해시화
-            let hashedEmail = securityService.hashEmail(email)
-
-            // Step 2: 해시값을 문서 ID로 사용하여 publicdata 컬렉션에 저장
-            let documentRef = firestore.collection(publicDataCollection).document(hashedEmail)
+            // Step 1: 원본 이메일을 문서 ID로 사용하여 publicdata 컬렉션에 저장
+            let documentRef = firestore.collection(publicDataCollection).document(email)
 
             let data: [String: Any] = [
                 "createdAt": Timestamp(date: Date())
             ]
 
-            // Step 3: 문서 저장
+            // Step 2: 문서 저장
             try await documentRef.setData(data)
-            print("UserService: PublicData 이메일 저장 성공 - 문서 ID: \(hashedEmail)")
+            print("UserService: PublicData 이메일 저장 성공 - 문서 ID: \(email)")
 
         } catch {
             print("UserService: PublicData 이메일 저장 실패 - \(error.localizedDescription)")

@@ -20,9 +20,6 @@ struct PhoneNumberInputModal: View {
     // Purpose: 회원가입 전체 상태 및 데이터 관리 (전화번호 입력값, 검증 상태 등)
     @ObservedObject var viewModel: SignUpViewModel
 
-    // Purpose: Firebase 인증 관리자 (회원가입 처리용)
-    @EnvironmentObject var authManager: AuthenticationManager
-
     // Purpose: 전화번호 형식 검증 및 포맷팅 서비스 (모달 내부에서만 사용)
     private let phoneNumberValidator = PhoneNumberValidator.shared
 
@@ -55,6 +52,9 @@ struct PhoneNumberInputModal: View {
         .padding(.horizontal, 20)
         .onAppear {
             focusedField = .phoneNumber
+        }
+        .onDisappear {
+            phoneCheckTimer?.invalidate()
         }
     }
 

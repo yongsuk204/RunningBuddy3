@@ -52,18 +52,18 @@ The project follows a modular MVVM architecture with clear separation of concern
   - `Authentication/` - Modal-based authentication system
     - `SignUpview/` - Sequential signup flow with individual modals
     - `LoginView/` - Login interface
-  - `Main/` - Main app navigation
-  - `Profile/` - User profile views
-  - `Running/` - Running-related views
+    - `FindEmailView/` - Email recovery by phone number
+  - `Main/` - Main app navigation (MainAppView.swift)
 
 - **Service/** - Business logic and external service integration
   - `Authentication/AuthenticationManager.swift` - Firebase Auth wrapper with state management
-  - `User/UserService.swift` - Firestore user data management and hashing coordination
+  - `User/UserService.swift` - Firestore user data management, hashing coordination, and email recovery
   - `Config/` - Validation and security services
     - `SecurityService.swift` - SHA-512 hashing with salt/pepper
     - `EmailValidator.swift` - RFC-compliant email validation
     - `PhoneNumberValidator.swift` - Korean phone number validation and formatting
     - `PasswordValidator.swift` - Password policy enforcement
+    - `Config.swift` - Security constants (salt/pepper values, gitignored)
 
 - **DataModel/** - Data models and entities
   - `User/UserData.swift` - User model with Firestore serialization (all sensitive data hashed)
@@ -112,6 +112,7 @@ The project follows a modular MVVM architecture with clear separation of concern
 3. **User Registration**: `AuthenticationManager` → `UserService` → `SecurityService` hashing → Firestore
 4. **Security Layer**: All sensitive data hashed in `UserService` before storage
 5. **State Management**: Reactive UI updates through `@Published` properties
+6. **Email Recovery**: FindEmailView → hash phone number → query users collection → return original email
 
 ## Security Considerations
 
@@ -166,9 +167,21 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
 
 ### Code Style Conventions
 - **Purpose comments**: Every property and function has a "Purpose:" comment explaining its role
+- **Function list comments**: Every file has a `// MARK: - 함수 목록` section at the top documenting all public methods with brief descriptions
 - **Step-by-step comments**: Complex functions break down logic with numbered steps
 - **Korean text in UI**: User-facing strings are in Korean, code/comments in English
 - **Modular structure**: One validator per input type, one modal per signup step
+
+Example function list format:
+```swift
+// Purpose: 서비스 설명
+// MARK: - 함수 목록
+/*
+ * Category Name
+ * - methodName(): 간단한 설명
+ * - anotherMethod(): 간단한 설명
+ */
+```
 
 ### Testing Authentication Flows
 - Test all signup steps in sequence (email → password → phone → security → completion)
@@ -184,3 +197,4 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
 - **Security-first data architecture**: SHA-512 hashing with salt/pepper
 - **Duplicate checking system**: Efficient hash-based lookups in `publicdata` collection
 - **Korean phone number support**: Formatting and validation for 010/011/016/017/018/019 numbers
+- **Email recovery feature**: FindEmailView allows users to retrieve email by phone number verification
