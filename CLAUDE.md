@@ -18,23 +18,25 @@ RunningBuddy3 is an iOS application built with SwiftUI and Firebase, targeting i
 
 ### Building and Running
 ```bash
-# Open project in Xcode
+# Open project in Xcode (primary development method)
 open RunningBuddy3.xcodeproj
 
-# Build from command line (requires xcodebuild)
+# Build for iPhone simulator
 xcodebuild -scheme RunningBuddy3 -destination 'platform=iOS Simulator,name=iPhone 16' build
 
-# Run on simulator
-xcodebuild -scheme RunningBuddy3 -destination 'platform=iOS Simulator,name=iPhone 16' test
+# Build for watchOS simulator
+xcodebuild -scheme "RunningBuddy3Watch Watch App" -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' build
 ```
 
 ### Testing
+Note: Firebase Phone Authentication requires a real device with APNs token. Simulator testing will fail for phone auth flows.
+
 ```bash
-# Run unit tests
+# Run unit tests (if available)
 xcodebuild -scheme RunningBuddy3 test -destination 'platform=iOS Simulator,name=iPhone 16'
 
-# Run UI tests (if available)
-xcodebuild -scheme RunningBuddy3 -destination 'platform=iOS Simulator,name=iPhone 16' -testPlan UITests test
+# Test authentication flows on real device (required for APNs)
+# Use Xcode GUI: Product > Run on connected device
 ```
 
 ## Architecture Overview
@@ -81,11 +83,11 @@ The project follows a modular MVVM architecture with clear separation of concern
    - `SecurityService` - Cryptographic operations
    - Individual validators for email, phone, and password
 
-3. **Security-First Data Storage**: All PII is hashed before storage
-   - Emails and phone numbers hashed with SHA-512 + salt + pepper
-   - Hashed values used as Firestore document IDs for efficient duplicate checking
-   - `publicdata` collection for duplicate checking without exposing actual values
-   - `users` collection for full user profiles (all hashed)
+3. **Security-First Data Storage**: Selective hashing for optimal security and functionality
+   - Emails stored in plaintext (Firebase Auth requirement), used as `publicdata` document IDs
+   - Phone numbers and security answers hashed with SHA-512 + salt + pepper
+   - `publicdata` collection for duplicate email checking (document ID = email)
+   - `users` collection for full user profiles (document ID = Firebase Auth UID)
 
 4. **Real-time Validation Pattern**: UI modals perform comprehensive validation
    - Format validation → API duplicate check → Visual feedback
@@ -101,25 +103,39 @@ The project follows a modular MVVM architecture with clear separation of concern
 - Must be placed in `/RunningBuddy3/` directory
 
 ### Firebase Services Used
-- **Authentication**: Email/password authentication
+- **Authentication**: Email/password authentication with APNs integration for phone verification
 - **Firestore**: Two-collection design for security
-  - `users` collection: Complete user profiles (hashed data)
-  - `publicdata` collection: Duplicate checking (document IDs are hashed emails/phones)
+  - `users` collection: Complete user profiles (email stored in plaintext, phone numbers hashed)
+  - `publicdata` collection: Duplicate checking (document IDs are plaintext emails for efficient lookup)
 
 ### Data Flow Architecture
 1. **UI Validation**: Modals perform real-time validation with debouncing
-2. **Duplicate Checking**: Hash input → query `publicdata` collection by document ID
-3. **User Registration**: `AuthenticationManager` → `UserService` → `SecurityService` hashing → Firestore
-4. **Security Layer**: All sensitive data hashed in `UserService` before storage
-5. **State Management**: Reactive UI updates through `@Published` properties
-6. **Email Recovery**: FindEmailView → hash phone number → query users collection → return original email
+2. **Duplicate Checking**: Query `publicdata` collection by document ID (plaintext email)
+3. **User Registration**: `AuthenticationManager` → `UserService` → `SecurityService` (selective hashing) → Firestore
+4. **Security Layer**: Selective hashing in `UserService`
+   - Emails: Stored in plaintext (used as document IDs in `publicdata`)
+   - Phone numbers: SHA-512 hashed with salt/pepper
+   - Security answers: SHA-512 hashed with salt/pepper
+5. **State Management**: Reactive UI updates through `@Published` properties in `SignUpViewModel`
+6. **Email Recovery**: FindEmailView → hash phone number → query `users` collection → return plaintext email
 
 ## Security Considerations
 
-- `Config.swift` contains security constants (salt/pepper) - gitignored
-- `GoogleService-Info.plist` contains API keys - gitignored
-- Security answers are hashed before storage
-- Password validation enforced through `PasswordValidator`
+### Critical Security Files (gitignored)
+- `Config.swift` - Contains salt/pepper values for SHA-512 hashing
+- `GoogleService-Info.plist` - Firebase API keys and configuration
+
+### Data Security Model
+- **Emails**: Stored in plaintext (Firebase Auth requirement, used for login)
+- **Phone Numbers**: SHA-512 hashed with salt/pepper before storage
+- **Security Answers**: SHA-512 hashed with salt/pepper before storage
+- **Passwords**: Managed by Firebase Authentication (never stored locally)
+- **Password Validation**: Enforced client-side through `PasswordValidator`
+
+### APNs and Phone Authentication
+- APNs token registration required for Firebase Phone Authentication
+- Silent push notifications used for device verification
+- Real device required for testing phone auth flows (simulator lacks APNs)
 
 ## Working with the Codebase
 
@@ -159,11 +175,20 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
 }
 ```
 
-### Security Data Handling
-- **Never store plaintext PII** - all emails, phones, security answers are hashed
-- **Hashing happens in UserService** layer, not in UI or AuthenticationManager
-- **Use document IDs for duplicate checking** - hash the input and query by document ID
-- **Salt + Pepper pattern** - SecurityService handles cryptographic operations
+### Security Data Handling Rules
+- **Email Storage**: Store in plaintext (Firebase Auth requirement)
+  - Used as document IDs in `publicdata` collection for duplicate checking
+  - Required for Firebase email/password authentication
+- **Phone Number Storage**: Always hash before storage
+  - Hash using `SecurityService.shared.hashPhoneNumber()`
+  - Used for email recovery by phone number lookup
+- **Security Answers**: Always hash before storage
+  - Hash using `SecurityService.shared.hashSecurityAnswer()`
+- **Hashing Location**: All hashing occurs in `UserService` layer
+  - Never hash in UI components or `AuthenticationManager`
+- **Duplicate Checking Pattern**: Query `publicdata` by document ID
+  - For emails: Use plaintext email as document ID
+- **Salt + Pepper**: `SecurityService` handles all cryptographic operations
 
 ### Code Style Conventions
 - **Purpose comments**: Every property and function has a "Purpose:" comment explaining its role
@@ -192,9 +217,53 @@ Example function list format:
 
 ## Current Development Status
 
-- **Complete modal-based signup flow**: Email, password, phone number, security question
-- **Real-time validation system**: Debounced API calls with visual feedback
-- **Security-first data architecture**: SHA-512 hashing with salt/pepper
-- **Duplicate checking system**: Efficient hash-based lookups in `publicdata` collection
-- **Korean phone number support**: Formatting and validation for 010/011/016/017/018/019 numbers
-- **Email recovery feature**: FindEmailView allows users to retrieve email by phone number verification
+### Implemented Features
+- **Modal-based signup flow**: Sequential Email → Password → Phone Number → Security Question → Completion
+- **Real-time validation**: Debounced (0.5s) API calls with `ValidationFeedbackIcon` states
+- **Security architecture**: SHA-512 hashing for phone numbers and security answers
+- **Duplicate prevention**: `publicdata` collection with email as document ID
+- **Korean phone validation**: Support for 010/011/016/017/018/019 prefixes with formatting
+- **Email recovery with password reset**:
+  - Phone number-based email lookup via `UserService.findEmailByPhoneNumber()`
+  - Select found email and send password reset link without login
+  - Firebase Auth `sendPasswordReset()` integration
+- **APNs integration**: Phone authentication support with silent push notification handling
+- **Alert-based error handling**: All authentication errors displayed via SwiftUI alerts (no inline error text)
+
+### Known Limitations
+- Phone authentication requires real device (APNs unavailable in simulator)
+- watchOS app structure exists but features not yet implemented
+
+## Error Message Handling Pattern
+
+The app uses a **shared `AuthenticationManager.errorMessage`** property for error communication between Service and View layers. To prevent message pollution across views:
+
+### Pattern: Defensive Message Cleanup
+```swift
+// In any View that uses AuthenticationManager
+.onAppear {
+    // Clear previous error messages when entering view
+    authManager.errorMessage = ""
+}
+
+// After capturing error message locally
+private func handleAction() async {
+    await authManager.someAuthMethod()
+
+    if !authManager.errorMessage.isEmpty {
+        localAlertMessage = authManager.errorMessage
+        showingAlert = true
+
+        // Clear immediately to prevent cross-view pollution
+        await MainActor.run {
+            authManager.errorMessage = ""
+        }
+    }
+}
+```
+
+### Key Points
+- **Always use local `@State` for alerts**: Never directly bind `authManager.errorMessage` to UI
+- **Clear in `.onAppear`**: Prevents leftover messages from other views
+- **Clear after capture**: Prevents message from appearing in unrelated views
+- **This is defensive coding**: Both clearing points may seem redundant but provide safety against unexpected navigation flows

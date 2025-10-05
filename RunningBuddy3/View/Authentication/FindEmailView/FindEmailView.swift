@@ -23,6 +23,7 @@ struct FindEmailView: View {
     @State private var verificationCode = ""
     @State private var sessionInfo = ""
     @State private var foundEmails: [String] = []
+    @State private var selectedEmail: String? = nil
     @State private var isLoading = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -159,7 +160,7 @@ struct FindEmailView: View {
                     .foregroundColor(.white.opacity(0.8))
                     .frame(width: 20)
 
-                TextField("010-1234-5678", text: $phoneNumber)
+                TextField("", text: $phoneNumber)
                     .foregroundColor(.white)
                     .keyboardType(.numberPad)
                     .textContentType(.telephoneNumber)
@@ -177,10 +178,6 @@ struct FindEmailView: View {
                             .stroke(Color.white.opacity(0.2), lineWidth: 1)
                     )
             )
-
-            Text("회원가입 시 등록한 전화번호를 입력해주세요")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.6))
         }
     }
 
@@ -280,21 +277,34 @@ struct FindEmailView: View {
 
                 VStack(spacing: 10) {
                     ForEach(foundEmails, id: \.self) { email in
-                        HStack {
-                            Image(systemName: "envelope.fill")
-                                .foregroundColor(.white.opacity(0.6))
+                        Button {
+                            selectedEmail = email
+                        } label: {
+                            HStack {
+                                // 체크 아이콘
+                                Image(systemName: selectedEmail == email ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedEmail == email ? .green : .white.opacity(0.6))
+                                    .font(.title3)
 
-                            Text(maskEmail(email))
-                                .font(.headline)
-                                .foregroundColor(.white)
+                                Image(systemName: "envelope.fill")
+                                    .foregroundColor(.white.opacity(0.6))
 
-                            Spacer()
+                                Text(maskEmail(email))
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+
+                                Spacer()
+                            }
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(selectedEmail == email ? Color.green : Color.white.opacity(0.2), lineWidth: 2)
+                                    )
+                            )
                         }
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(.ultraThinMaterial)
-                        )
                     }
                 }
             }
@@ -304,28 +314,9 @@ struct FindEmailView: View {
     // MARK: - Navigation Section
 
     private var navigationSection: some View {
-        HStack(spacing: 16) {
-            // 뒤로/다시 찾기 버튼
-            Button {
-                handleBackAction()
-            } label: {
-                Text(backButtonTitle)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                            )
-                    )
-            }
-
-            // 다음/로그인 버튼
-            if currentStep != .showResults || !foundEmails.isEmpty {
+        VStack(spacing: 12) {
+            // 다음 버튼 (이메일 찾기 완료 전까지만 표시)
+            if currentStep != .showResults {
                 Button {
                     Task {
                         await handleNextAction()
@@ -347,7 +338,7 @@ struct FindEmailView: View {
                 }
                 .disabled(!isNextButtonEnabled || isLoading)
             } else if foundEmails.isEmpty {
-                // 회원가입 버튼
+                // 회원가입 버튼 (이메일이 없을 때만)
                 NavigationLink {
                     SignUpView()
                 } label: {
@@ -365,6 +356,51 @@ struct FindEmailView: View {
                                 )
                         )
                 }
+            } else if !foundEmails.isEmpty {
+                // 비밀번호 재설정 버튼 (이메일을 찾았을 때)
+                Button {
+                    guard let email = selectedEmail else { return }
+                    Task {
+                        await sendPasswordResetEmail(to: email)
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "key.fill")
+                        Text("비밀번호 재설정 이메일 발송")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(selectedEmail != nil ? Color.blue.opacity(0.5) : Color.gray.opacity(0.3))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                    )
+                }
+                .disabled(selectedEmail == nil || isLoading)
+            }
+
+            // 뒤로/다시 찾기 버튼
+            Button {
+                handleBackAction()
+            } label: {
+                Text(backButtonTitle)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                    )
             }
         }
     }
@@ -387,7 +423,7 @@ struct FindEmailView: View {
         case .smsVerification:
             return isLoading ? "확인 중..." : "확인"
         case .showResults:
-            return "로그인 하기"
+            return "" // navigationSection에서 이미 필터링되어 호출되지 않음
         }
     }
 
@@ -398,7 +434,7 @@ struct FindEmailView: View {
         case .smsVerification:
             return verificationCode.count == 6
         case .showResults:
-            return !foundEmails.isEmpty
+            return false // navigationSection에서 이미 필터링되어 호출되지 않음
         }
     }
 
@@ -420,6 +456,7 @@ struct FindEmailView: View {
             verificationCode = ""
             sessionInfo = ""
             foundEmails = []
+            selectedEmail = nil
         }
     }
 
@@ -430,8 +467,34 @@ struct FindEmailView: View {
         case .smsVerification:
             await verifySMS()
         case .showResults:
-            dismiss()
+            break // 더 이상 사용하지 않음
         }
+    }
+
+    // MARK: - Password Reset
+
+    // Purpose: 비밀번호 재설정 이메일 발송
+    private func sendPasswordResetEmail(to email: String) async {
+        isLoading = true
+
+        await authManager.sendPasswordReset(email: email)
+
+        // AuthenticationManager의 errorMessage 확인 후 alert로 표시
+        if authManager.errorMessage.contains("재설정 이메일이 발송되었습니다") {
+            alertMessage = "\(maskEmail(email))로\n비밀번호 재설정 이메일이 발송되었습니다.\n\n이메일을 확인하여 비밀번호를 재설정해주세요."
+        } else if !authManager.errorMessage.isEmpty {
+            alertMessage = authManager.errorMessage
+        } else {
+            alertMessage = "비밀번호 재설정 이메일 발송에 실패했습니다."
+        }
+
+        // AuthenticationManager의 errorMessage 초기화 (LoginView에 영향 없도록) 👈 loginview 메시지 초기화 있음 .onAppear으로 실행시 최초 1회 초기화함
+        await MainActor.run {
+            authManager.errorMessage = ""
+        }
+
+        showingAlert = true
+        isLoading = false
     }
 
     // MARK: - SMS Functions

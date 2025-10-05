@@ -5,7 +5,7 @@ import FirebaseAuth
 struct LoginView: View {
     
     // MARK: - Properties
-    
+
     @EnvironmentObject var authManager: AuthenticationManager
     // 사용자 입력 필드들
     @State private var email = ""
@@ -13,6 +13,9 @@ struct LoginView: View {
     // 화면 전환 상태 관리
     @State private var showingSignUp = false
     @State private var showingFindEmail = false
+    // Alert 관리
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
     
     // MARK: - Body
     
@@ -75,17 +78,10 @@ struct LoginView: View {
                             )
                         }
                         .padding(.horizontal)
-                        
-                        if !authManager.errorMessage.isEmpty {
-                            Text(authManager.errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                                .padding(.horizontal)
-                        }
-                        
+
                         Button {
                             Task {
-                                await authManager.signIn(email: email, password: password)
+                                await signIn()
                             }
                         } label: {
                             Text("로그인")
@@ -136,6 +132,11 @@ struct LoginView: View {
             .navigationDestination(isPresented: $showingFindEmail) {
                 FindEmailView()
             }
+            .alert("알림", isPresented: $showingAlert) {
+                Button("확인") { }
+            } message: {
+                Text(alertMessage)
+            }
             .overlay {
                 if authManager.isLoading {
                     ProgressView()
@@ -143,6 +144,28 @@ struct LoginView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.black.opacity(0.3))
                 }
+            }
+            .onAppear {
+                // LoginView 진입 시 이전 에러 메시지 초기화 👈 FindEmailView에서도 재설정전송 완료후 초기화 하는 부분이 있음
+                authManager.errorMessage = ""
+            }
+        }
+    }
+
+    // MARK: - Methods
+
+    // Purpose: 로그인 처리 및 에러 메시지를 alert로 표시
+    private func signIn() async {
+        await authManager.signIn(email: email, password: password)
+
+        // 로그인 실패 시 에러 메시지를 alert로 표시
+        if !authManager.errorMessage.isEmpty {
+            alertMessage = authManager.errorMessage
+            showingAlert = true
+
+            // errorMessage 초기화
+            await MainActor.run {
+                authManager.errorMessage = ""
             }
         }
     }
