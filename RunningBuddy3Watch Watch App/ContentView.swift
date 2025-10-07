@@ -7,15 +7,10 @@
 
 import SwiftUI
 
+// Purpose: Apple Watch 앱의 루트 뷰
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        WatchWorkoutView()
     }
 }
 

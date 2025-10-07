@@ -59,6 +59,30 @@ struct MainAppView: View {
 
                     Spacer()
 
+                    // 측정하기 버튼
+                    NavigationLink(destination: SensorDataView()) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "figure.run")
+                                .font(.title3)
+
+                            Text("측정하기")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.blue.opacity(0.6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.blue.opacity(0.8), lineWidth: 2)
+                                )
+                                .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
+                        )
+                    }
+                    .padding(.horizontal)
+
                     // 로그아웃 버튼
                     Button(action: {
                         authManager.signOut()
