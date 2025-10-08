@@ -473,7 +473,7 @@ struct FindEmailView: View {
 
     // MARK: - Password Reset
 
-    // Purpose: 비밀번호 재설정 이메일 발송
+    // Purpose: 비밀번호 재설정 이메일 발송 👈
     private func sendPasswordResetEmail(to email: String) async {
         isLoading = true
 
@@ -528,6 +528,7 @@ struct FindEmailView: View {
         isLoading = false
     }
 
+    // Purpose: Firebase Phone Auth로 인증 코드 검증함수 👈
     private func verifySMS() async {
         isLoading = true
 

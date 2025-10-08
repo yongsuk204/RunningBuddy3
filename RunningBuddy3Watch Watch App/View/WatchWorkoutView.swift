@@ -170,7 +170,3 @@ struct WatchWorkoutView: View {
         .buttonStyle(.plain)
     }
 }
-
-#Preview {
-    WatchWorkoutView()
-}

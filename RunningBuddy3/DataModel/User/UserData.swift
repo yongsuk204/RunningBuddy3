@@ -2,6 +2,13 @@ import Foundation
 import FirebaseFirestore
 
 // Purpose: 사용자 회원가입 정보를 저장하기 위한 데이터 모델
+// MARK: - 함수 목록
+/*
+ * Firestore Conversion
+ * - toDictionary(): UserData 객체를 Firestore 저장용 딕셔너리로 변환
+ * - fromDictionary(_:): Firestore 문서 데이터에서 UserData 객체 생성
+ */
+
 struct UserData: Codable {
 
     // MARK: - Properties

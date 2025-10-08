@@ -13,7 +13,3 @@ struct ContentView: View {
         WatchWorkoutView()
     }
 }
-
-#Preview {
-    ContentView()
-}
