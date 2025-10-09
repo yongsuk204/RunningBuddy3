@@ -1,11 +1,24 @@
 import SwiftUI
 
-// Purpose: iPhone에서 Apple Watch 센서 데이터 실시간 표시 화면
+// Purpose: iPhone에서 Apple Watch 센서 데이터 실시간 표시 및 CSV 저장 화면
 struct SensorDataView: View {
 
     // MARK: - Properties
 
     @StateObject private var connectivityManager = PhoneConnectivityManager.shared
+    @StateObject private var exporter = SensorDataExporter()
+
+    // Purpose: 파일 공유 시트 표시 여부
+    @State private var showingShareSheet = false
+
+    // Purpose: 공유할 CSV 파일 URL
+    @State private var csvFileURL: URL?
+
+    // Purpose: 알림 표시 여부
+    @State private var showingAlert = false
+
+    // Purpose: 알림 메시지
+    @State private var alertMessage = ""
 
     // MARK: - Body
 
@@ -38,6 +51,27 @@ struct SensorDataView: View {
         .navigationTitle("실시간 센서")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                recordButton
+            }
+        }
+        .onChange(of: connectivityManager.receivedSensorData) { oldValue, newValue in
+            // 녹화 중일 때 센서 데이터 추가
+            if let data = newValue {
+                exporter.addSensorData(data)
+            }
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = csvFileURL {
+                ShareSheet(items: [url])
+            }
+        }
+        .alert("알림", isPresented: $showingAlert) {
+            Button("확인", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
     }
 
     // MARK: - Status Header
@@ -138,6 +172,72 @@ struct SensorDataView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
     }
+
+    // MARK: - Record Button
+
+    private var recordButton: some View {
+        Button {
+            if exporter.isRecording {
+                // 녹화 중지 및 CSV 저장
+                stopRecordingAndExport()
+            } else {
+                // 녹화 시작
+                exporter.startRecording()
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: exporter.isRecording ? "stop.circle.fill" : "record.circle")
+                    .font(.title3)
+                    .foregroundColor(exporter.isRecording ? .red : .white)
+
+                if exporter.isRecording {
+                    Text("\(exporter.recordedCount)")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                }
+            }
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 녹화 중지 및 CSV 파일 저장
+    // ═══════════════════════════════════════
+    private func stopRecordingAndExport() {
+        let data = exporter.stopRecording()
+
+        guard !data.isEmpty else {
+            alertMessage = "저장할 데이터가 없습니다"
+            showingAlert = true
+            return
+        }
+
+        do {
+            let fileURL = try exporter.exportToCSV(data: data)
+            csvFileURL = fileURL
+            showingShareSheet = true
+        } catch {
+            alertMessage = "CSV 파일 저장 실패: \(error.localizedDescription)"
+            showingAlert = true
+        }
+    }
+}
+
+// MARK: - Share Sheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: items,
+            applicationActivities: nil
+        )
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

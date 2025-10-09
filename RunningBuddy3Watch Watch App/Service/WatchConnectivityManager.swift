@@ -79,12 +79,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             print("❌ 센서 데이터 전송 실패: \(error.localizedDescription)")
         }
 
-        // 디버그 로그 (심박수만 표시)
-        if let heartRate = data.heartRate {
-            print("📤 센서 데이터 전송: 심박수 \(heartRate) bpm")
-        } else {
-            print("📤 센서 데이터 전송 (심박수 없음)")
-        }
+        // 디버그 로그 (심박수만 표시) 👈 디버깅이 많아서 주석처리
+//        if let heartRate = data.heartRate {
+//            print("📤 센서 데이터 전송: 심박수 \(heartRate) bpm")
+//        } else {
+//            print("📤 센서 데이터 전송 (심박수 없음)")
+//        }
     }
 }
 

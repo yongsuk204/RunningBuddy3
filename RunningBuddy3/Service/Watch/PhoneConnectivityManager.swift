@@ -92,24 +92,24 @@ extension PhoneConnectivityManager: WCSessionDelegate {
     // PURPOSE: Watch로부터 센서 데이터 수신
     // ═══════════════════════════════════════
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        // Step 1: 딕셔너리를 SensorData로 변환
+        // Step 1: 백그라운드에서 딕셔너리를 SensorData로 변환 (파싱 작업은 메인 스레드 블로킹 방지)
         guard let sensorData = SensorData.fromDictionary(message) else {
             print("❌ 센서 데이터 변환 실패")
             return
         }
 
-        // Step 2: 메인 스레드에서 데이터 업데이트
-        DispatchQueue.main.async {
-            self.receivedSensorData = sensorData
-            self.lastUpdateTime = Date()
-
-            // 디버그 로그
-            if let heartRate = sensorData.heartRate {
-                print("📥 센서 데이터 수신: 심박수 \(heartRate) bpm")
-            } else {
-                print("📥 센서 데이터 수신 (심박수 없음)")
-            }
+        // Step 2: 메인 스레드는 최소한만 사용 - Published 프로퍼티 업데이트만
+        DispatchQueue.main.async { [weak self] in
+            self?.receivedSensorData = sensorData
+            self?.lastUpdateTime = Date()
         }
+
+        // 디버그 로그 (주석처리 - 너무 빈번한 출력 방지)
+//        if let heartRate = sensorData.heartRate {
+//            print("📥 센서 데이터 수신: 심박수 \(heartRate) bpm")
+//        } else {
+//            print("📥 센서 데이터 수신 (심박수 없음)")
+//        }
     }
 
     // ═══════════════════════════════════════

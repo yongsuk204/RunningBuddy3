@@ -3,20 +3,24 @@ import HealthKit
 import CoreMotion
 import Combine
 
-// Purpose: Apple Watch에서 센서 데이터 실시간 수집 (심박수, 가속도계, 자이로스코프)
+// Purpose: Apple Watch에서 센서 데이터 실시간 수집 (심박수, 가속도계, 자이로스코프) - 이벤트 기반 즉시 전송
 // MARK: - 함수 목록
 /*
  * Monitoring Control
- * - startMonitoring(): 센서 모니터링 시작
+ * - startMonitoring(): 센서 모니터링 시작 (이벤트 기반)
  * - stopMonitoring(): 센서 모니터링 중지
  *
  * Heart Rate Monitoring
  * - startHeartRateStreaming(): HealthKit을 사용한 심박수 실시간 스트리밍
+ * - processHeartRateSamples(_:): 심박수 샘플 처리 및 센서 데이터 업데이트
  * - stopHeartRateStreaming(): 심박수 스트리밍 중지
  *
  * Motion Monitoring
- * - startMotionUpdates(): CoreMotion을 사용한 가속도계/자이로스코프 데이터 수집
+ * - startMotionUpdates(): CoreMotion을 사용한 가속도계/자이로스코프 데이터 수집 (이벤트 기반)
  * - stopMotionUpdates(): 모션 센서 업데이트 중지
+ *
+ * Sensor Data Update
+ * - createAndPublishSensorData(motion:): 센서 데이터 생성 및 게시 (이벤트 기반 즉시 업데이트)
  *
  * Permission Handling
  * - requestHealthKitAuthorization(): HealthKit 권한 요청
@@ -56,9 +60,6 @@ class WatchSensorManager: ObservableObject {
     // Purpose: 심박수 쿼리 (스트리밍 중지를 위해 저장)
     private var heartRateQuery: HKQuery?
 
-    // Purpose: 센서 데이터 업데이트 타이머
-    private var updateTimer: Timer?
-
     // Purpose: 최근 디바이스 모션 데이터 (가속도계 + 자이로스코프 통합)
     private var latestDeviceMotion: CMDeviceMotion?
 
@@ -88,42 +89,41 @@ class WatchSensorManager: ObservableObject {
         // Step 2: 심박수 스트리밍 시작
         startHeartRateStreaming()
 
-        // Step 3: 모션 센서 시작
+        // Step 3: 모션 센서 시작 (이벤트 기반 실시간 업데이트)
         startMotionUpdates()
 
-        // Step 4: 센서 데이터 통합 타이머 시작 (0.5초마다)
+        // Step 4: 모니터링 상태 업데이트
         await MainActor.run {
-            updateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-                Task {
-                    await self?.updateSensorData()
-                }
-            }
             isMonitoring = true
         }
 
-        print("✅ 센서 모니터링 시작")
+        print("✅ 센서 모니터링 시작 (이벤트 기반)")
     }
 
     // ═══════════════════════════════════════
     // PURPOSE: 센서 모니터링 중지
     // ═══════════════════════════════════════
     func stopMonitoring() {
-        // Step 1: 심박수 스트리밍 중지
-        stopHeartRateStreaming()
-
-        // Step 2: 모션 센서 중지
-        stopMotionUpdates()
-
-        // Step 3: 타이머 중지
-        updateTimer?.invalidate()
-        updateTimer = nil
-
-        // Step 4: 상태 초기화
+        // Step 1: UI 상태 즉시 업데이트 (사용자 응답성 우선)
         isMonitoring = false
         currentSensorData = nil
         currentHeartRate = nil
 
-        print("⏹️ 센서 모니터링 중지")
+        // Step 2: 센서 중지 작업은 Task로 백그라운드 처리 (메인 액터 컨텍스트 유지)
+        Task { [weak self] in
+            await self?.performSensorCleanup()
+        }
+
+        print("⏹️ 센서 모니터링 중지 (UI 즉시 반영)")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 센서 정리 작업 (백그라운드에서 안전하게 실행)
+    // ═══════════════════════════════════════
+    @MainActor
+    private func performSensorCleanup() async {
+        stopHeartRateStreaming()
+        stopMotionUpdates()
     }
 
     // MARK: - Heart Rate Monitoring
@@ -164,7 +164,7 @@ class WatchSensorManager: ObservableObject {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 심박수 샘플 처리
+    // PURPOSE: 심박수 샘플 처리 및 센서 데이터 업데이트
     // ═══════════════════════════════════════
     private func processHeartRateSamples(_ samples: [HKSample]?) {
         guard let heartRateSamples = samples as? [HKQuantitySample],
@@ -176,9 +176,14 @@ class WatchSensorManager: ObservableObject {
         let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
         let heartRate = latestSample.quantity.doubleValue(for: heartRateUnit)
 
-        DispatchQueue.main.async {
-            self.currentHeartRate = heartRate
-            print("💓 심박수 업데이트: \(heartRate) bpm")
+        DispatchQueue.main.async { [weak self] in
+            self?.currentHeartRate = heartRate
+
+            // Step: 심박수 업데이트 시 최신 모션 데이터와 결합하여 즉시 센서 데이터 갱신
+            if let motion = self?.latestDeviceMotion {
+                self?.createAndPublishSensorData(motion: motion)
+            }
+//            print("💓 심박수 업데이트: \(heartRate) bpm") 👈 디버깅이 많아서 주석처리
         }
     }
 
@@ -196,7 +201,7 @@ class WatchSensorManager: ObservableObject {
     // MARK: - Motion Monitoring
 
     // ═══════════════════════════════════════
-    // PURPOSE: CoreMotion을 사용한 가속도계/자이로스코프 데이터 수집
+    // PURPOSE: CoreMotion을 사용한 가속도계/자이로스코프 데이터 수집 (이벤트 기반 실시간 업데이트)
     // NOTE: watchOS에서는 DeviceMotion을 사용해야 자이로스코프 데이터 접근 가능
     // ═══════════════════════════════════════
     private func startMotionUpdates() {
@@ -211,10 +216,10 @@ class WatchSensorManager: ObservableObject {
             return
         }
 
-        // Step 2: 업데이트 주기 설정
+        // Step 2: 업데이트 주기 설정 (0.1초마다 업데이트)
         motionManager.deviceMotionUpdateInterval = 0.1
 
-        // Step 3: 디바이스 모션 업데이트 시작 (가속도계 + 자이로스코프 통합)
+        // Step 3: 디바이스 모션 업데이트 시작 - 이벤트 발생 즉시 센서 데이터 생성 및 전송
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
             if let error = error {
                 print("❌ 디바이스 모션 오류: \(error)")
@@ -223,10 +228,12 @@ class WatchSensorManager: ObservableObject {
 
             if let motion = motion {
                 self?.latestDeviceMotion = motion
+                // Step: 모션 데이터 수신 즉시 센서 데이터 생성 및 게시
+                self?.createAndPublishSensorData(motion: motion)
             }
         }
 
-        print("✅ 디바이스 모션 시작 (가속도계 + 자이로스코프)")
+        print("✅ 디바이스 모션 시작 (가속도계 + 자이로스코프, 이벤트 기반)")
     }
 
     // ═══════════════════════════════════════
@@ -241,25 +248,20 @@ class WatchSensorManager: ObservableObject {
     // MARK: - Sensor Data Update
 
     // ═══════════════════════════════════════
-    // PURPOSE: 센서 데이터 통합 및 업데이트
+    // PURPOSE: 센서 데이터 생성 및 게시 (이벤트 기반 즉시 업데이트)
     // ═══════════════════════════════════════
-    private func updateSensorData() async {
-        // Step 1: 디바이스 모션 데이터 확인 (필수)
-        guard let motion = latestDeviceMotion else {
-            return
-        }
-
-        // Step 2: 가속도계 데이터 추출 (userAcceleration: 중력 제외한 가속도)
+    private func createAndPublishSensorData(motion: CMDeviceMotion) {
+        // Step 1: 가속도계 데이터 추출 (userAcceleration: 중력 제외한 가속도)
         let accelX = motion.userAcceleration.x
         let accelY = motion.userAcceleration.y
         let accelZ = motion.userAcceleration.z
 
-        // Step 3: 자이로스코프 데이터 추출 (rotationRate)
+        // Step 2: 자이로스코프 데이터 추출 (rotationRate)
         let gyroX = motion.rotationRate.x
         let gyroY = motion.rotationRate.y
         let gyroZ = motion.rotationRate.z
 
-        // Step 4: SensorData 객체 생성
+        // Step 3: SensorData 객체 생성
         let sensorData = SensorData(
             heartRate: currentHeartRate,
             accelerometerX: accelX,
@@ -271,10 +273,8 @@ class WatchSensorManager: ObservableObject {
             timestamp: Date()
         )
 
-        // Step 5: 메인 스레드에서 센서 데이터 업데이트
-        await MainActor.run {
-            currentSensorData = sensorData
-        }
+        // Step 4: 센서 데이터 즉시 게시 (이미 메인 스레드에서 실행 중)
+        currentSensorData = sensorData
     }
 
     // MARK: - Permission Handling
