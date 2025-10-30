@@ -28,3 +28,8 @@ DerivedData/
 
 # Firebase Functions (전체 폴더)
 functions/
+
+# 데이터 분석용 파일들
+*.ipynb
+*.csv
+*.png

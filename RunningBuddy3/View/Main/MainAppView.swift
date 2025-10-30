@@ -21,98 +21,100 @@ struct MainAppView: View {
                 )
                 .ignoresSafeArea()
 
-                VStack(spacing: 40) {
-                    Spacer()
-
-                    // 메인 환영 메시지
-                    VStack(spacing: 20) {
-                        // 앱 아이콘
-                        Image(systemName: "figure.run")
-                            .font(.system(size: 80))
-                            .foregroundColor(.white)
-
-                        Text("환영합니다! 👋")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-
-                        if let email = authManager.currentUser?.email {
-                            Text(email.components(separatedBy: "@").first ?? "")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white.opacity(0.9))
-                        }
-
-                        Text("Running Buddy에 오신 것을 환영합니다!")
-                            .font(.headline)
-                            .foregroundColor(.white.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.vertical, 40)
-                    .padding(.horizontal, 30)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(.ultraThinMaterial)
-                            .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 8)
-                    )
-                    .padding(.horizontal)
-
-                    Spacer()
-
-                    // 측정하기 버튼
-                    NavigationLink(destination: SensorDataView()) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "figure.run")
-                                .font(.title3)
-
-                            Text("측정하기")
-                                .font(.headline)
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.blue.opacity(0.6))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.blue.opacity(0.8), lineWidth: 2)
+                ScrollView {
+                    VStack(spacing: 40) {
+                        // 메뉴 그리드 (2x2)
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                            // 센서 데이터
+                            NavigationLink(destination: SensorDataView()) {
+                                GridMenuButton(
+                                    icon: "sensor.fill",
+                                    title: "실시간 센서",
+                                    color: .green
                                 )
-                                .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
-                        )
-                    }
-                    .padding(.horizontal)
+                            }
 
-                    // 로그아웃 버튼
-                    Button(action: {
-                        authManager.signOut()
-                    }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.title3)
-
-                            Text("로그아웃")
-                                .font(.headline)
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.red.opacity(0.6), lineWidth: 2)
+                            // 프로필
+                            NavigationLink(destination: Text("프로필 화면 (준비중)")) {
+                                GridMenuButton(
+                                    icon: "person.circle.fill",
+                                    title: "프로필",
+                                    color: .blue
                                 )
-                                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-                        )
+                            }
+
+                            // 설정
+                            NavigationLink(destination: Text("설정 화면 (준비중)")) {
+                                GridMenuButton(
+                                    icon: "gearshape.fill",
+                                    title: "설정",
+                                    color: .purple
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+
+                        // 로그아웃 버튼
+                        Button(action: {
+                            authManager.signOut()
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .font(.title3)
+
+                                Text("로그아웃")
+                                    .font(.headline)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.red.opacity(0.6), lineWidth: 2)
+                                    )
+                                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            )
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 50)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 50)
                 }
             }
-            .navigationTitle("Running Buddy")
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         }
+    }
+}
+
+// MARK: - Grid Menu Button
+
+struct GridMenuButton: View {
+    let icon: String
+    let title: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 40))
+                .foregroundColor(color)
+
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 140)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(color.opacity(0.6), lineWidth: 2)
+                )
+                .shadow(color: color.opacity(0.3), radius: 10, x: 0, y: 5)
+        )
     }
 }

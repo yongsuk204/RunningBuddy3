@@ -1,37 +1,42 @@
 import SwiftUI
 
-// Purpose: 심박수 표시 카드 UI 컴포넌트
-struct HeartRateCard: View {
+// Purpose: 케이던스(분당 스텝 수) 표시 카드 UI 컴포넌트
+struct CadenceCard: View {
 
     // MARK: - Properties
 
-    // Purpose: 심박수 값 (bpm)
-    let heartRate: Double
+    // Purpose: 평균 케이던스 값 (SPM - Steps Per Minute)
+    let cadence: Double
 
     // MARK: - Body
 
     var body: some View {
         VStack(spacing: 16) {
-            // 하트 아이콘
-            Image(systemName: "heart.fill")
+            // 러닝 아이콘
+            Image(systemName: "figure.run")
                 .font(.system(size: 40))
-                .foregroundColor(.red)
+                .foregroundColor(.orange)
 
             // 제목
-            Text("심박수")
+            Text("평균 케이던스")
                 .font(.headline)
                 .foregroundColor(.white.opacity(0.9))
 
-            // 심박수 값
+            // 케이던스 값
             HStack(alignment: .lastTextBaseline, spacing: 4) {
-                Text(String(format: "%.0f", heartRate))
+                Text(String(format: "%.0f", cadence))
                     .font(.system(size: 48, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
 
-                Text("bpm")
+                Text("SPM")
                     .font(.title3)
                     .foregroundColor(.white.opacity(0.7))
             }
+
+            // 설명 텍스트
+            Text("분당 스텝 수")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
@@ -40,9 +45,9 @@ struct HeartRateCard: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.red.opacity(0.5), lineWidth: 2)
+                        .stroke(Color.orange.opacity(0.5), lineWidth: 2)
                 )
-                .shadow(color: Color.red.opacity(0.3), radius: 10, x: 0, y: 5)
+                .shadow(color: Color.orange.opacity(0.3), radius: 10, x: 0, y: 5)
         )
     }
 }

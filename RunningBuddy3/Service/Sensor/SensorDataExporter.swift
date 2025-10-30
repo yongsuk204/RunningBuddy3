@@ -87,7 +87,7 @@ class SensorDataExporter: ObservableObject {
     // ═══════════════════════════════════════
     private func generateCSVContent(from data: [SensorData]) -> String {
         // Step 1: CSV 헤더 생성
-        var csvString = "Timestamp,Heart Rate (bpm),Accelerometer X (g),Accelerometer Y (g),Accelerometer Z (g),Accelerometer Magnitude (g),Gyroscope X (rad/s),Gyroscope Y (rad/s),Gyroscope Z (rad/s),Gyroscope Magnitude (rad/s)\n"
+        var csvString = "Timestamp,Heart Rate (bpm),Accelerometer X (g),Accelerometer Y (g),Accelerometer Z (g),Gyroscope X (rad/s),Gyroscope Y (rad/s),Gyroscope Z (rad/s)\n"
 
         // Step 2: 각 센서 데이터를 CSV 행으로 변환
         let dateFormatter = ISO8601DateFormatter()
@@ -103,11 +103,9 @@ class SensorDataExporter: ObservableObject {
                 String(format: "%.6f", sensorData.accelerometerX),
                 String(format: "%.6f", sensorData.accelerometerY),
                 String(format: "%.6f", sensorData.accelerometerZ),
-                String(format: "%.6f", sensorData.accelerometerMagnitude),
                 String(format: "%.6f", sensorData.gyroscopeX),
                 String(format: "%.6f", sensorData.gyroscopeY),
-                String(format: "%.6f", sensorData.gyroscopeZ),
-                String(format: "%.6f", sensorData.gyroscopeMagnitude)
+                String(format: "%.6f", sensorData.gyroscopeZ)
             ].joined(separator: ",")
 
             csvString += row + "\n"

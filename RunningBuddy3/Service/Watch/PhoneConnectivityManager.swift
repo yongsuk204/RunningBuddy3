@@ -1,12 +1,16 @@
 import Foundation
 import WatchConnectivity
 import Combine
+import CoreLocation
 
-// Purpose: iPhone에서 Apple Watch로부터 센서 데이터 수신 (WatchConnectivity 사용)
+// Purpose: iPhone에서 Apple Watch로부터 센서 데이터 수신 및 명령 전송 (WatchConnectivity 사용)
 // MARK: - 함수 목록
 /*
  * Initialization
  * - activateSession(): WCSession 활성화
+ *
+ * Command Transmission
+ * - sendCommand(_:): Watch로 운동 제어 명령 전송
  *
  * WCSessionDelegate
  * - session(_:activationDidCompleteWith:error:): 세션 활성화 완료 처리
@@ -14,6 +18,12 @@ import Combine
  * - sessionDidBecomeInactive(_:): 세션 비활성화 처리
  * - sessionDidDeactivate(_:): 세션 비활성화 완료 처리
  */
+
+// Purpose: 워치 운동 제어 명령 타입
+enum WorkoutCommand: String {
+    case start = "start"
+    case stop = "stop"
+}
 
 class PhoneConnectivityManager: NSObject, ObservableObject {
 
@@ -25,6 +35,9 @@ class PhoneConnectivityManager: NSObject, ObservableObject {
 
     // Purpose: Watch로부터 수신한 최신 센서 데이터
     @Published var receivedSensorData: SensorData?
+
+    // Purpose: Watch로부터 수신한 GPS 위치 (DistanceCalculator로 전달)
+    @Published var receivedLocation: CLLocation?
 
     // Purpose: Watch와의 연결 상태
     @Published var isWatchReachable = false
@@ -62,6 +75,30 @@ class PhoneConnectivityManager: NSObject, ObservableObject {
         session.activate()
         print("📱 WatchConnectivity 세션 활성화 시작")
     }
+
+    // MARK: - Command Transmission
+
+    // ═══════════════════════════════════════
+    // PURPOSE: Watch로 운동 제어 명령 전송
+    // ═══════════════════════════════════════
+    func sendCommand(_ command: WorkoutCommand) {
+        // Step 1: 세션 상태 확인
+        guard let session = session,
+              session.isReachable else {
+            print("⚠️ Apple Watch에 연결되지 않았습니다")
+            return
+        }
+
+        // Step 2: 명령을 딕셔너리로 변환
+        let message = ["command": command.rawValue]
+
+        // Step 3: Watch로 메시지 전송
+        session.sendMessage(message, replyHandler: nil) { error in
+            print("❌ 명령 전송 실패: \(error.localizedDescription)")
+        }
+
+        print("📤 명령 전송: \(command.rawValue)")
+    }
 }
 
 // MARK: - WCSessionDelegate
@@ -80,25 +117,62 @@ extension PhoneConnectivityManager: WCSessionDelegate {
             if let error = error {
                 print("❌ WCSession 활성화 실패: \(error.localizedDescription)")
                 self.isSessionActivated = false
+                self.isWatchReachable = false
             } else {
                 print("✅ WCSession 활성화 완료: \(activationState.rawValue)")
                 self.isSessionActivated = true
                 self.isWatchReachable = session.isReachable
+                print("⌚️ Watch 초기 연결 상태: \(session.isReachable ? "연결됨" : "연결 해제")")
+                print("⌚️ Watch paired: \(session.isPaired), installed: \(session.isWatchAppInstalled)")
             }
         }
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: Watch로부터 센서 데이터 수신
+    // PURPOSE: Watch로부터 메시지 수신 (센서 데이터 또는 GPS 위치)
     // ═══════════════════════════════════════
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        // Step 1: 백그라운드에서 딕셔너리를 SensorData로 변환 (파싱 작업은 메인 스레드 블로킹 방지)
+        // Step 1: 메시지 타입 확인
+        if let messageType = message["type"] as? String, messageType == "location" {
+            // GPS 위치 메시지 처리
+            if let latitude = message["latitude"] as? Double,
+               let longitude = message["longitude"] as? Double,
+               let altitude = message["altitude"] as? Double,
+               let horizontalAccuracy = message["horizontalAccuracy"] as? Double,
+               let verticalAccuracy = message["verticalAccuracy"] as? Double,
+               let speed = message["speed"] as? Double,
+               let course = message["course"] as? Double,
+               let timestampInterval = message["timestamp"] as? TimeInterval {
+
+                let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                let timestamp = Date(timeIntervalSince1970: timestampInterval)
+
+                let location = CLLocation(
+                    coordinate: coordinate,
+                    altitude: altitude,
+                    horizontalAccuracy: horizontalAccuracy,
+                    verticalAccuracy: verticalAccuracy,
+                    course: course,
+                    speed: speed,
+                    timestamp: timestamp
+                )
+
+                DispatchQueue.main.async { [weak self] in
+                    self?.receivedLocation = location
+                }
+
+                print("📍 GPS 위치 수신: (\(String(format: "%.6f", latitude)), \(String(format: "%.6f", longitude)))")
+            }
+            return
+        }
+
+        // Step 2: 센서 데이터 메시지 처리
         guard let sensorData = SensorData.fromDictionary(message) else {
             print("❌ 센서 데이터 변환 실패")
             return
         }
 
-        // Step 2: 메인 스레드는 최소한만 사용 - Published 프로퍼티 업데이트만
+        // Step 3: 메인 스레드는 최소한만 사용 - Published 프로퍼티 업데이트만
         DispatchQueue.main.async { [weak self] in
             self?.receivedSensorData = sensorData
             self?.lastUpdateTime = Date()

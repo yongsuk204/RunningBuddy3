@@ -7,13 +7,13 @@ import Combine
 // MARK: - 함수 목록
 /*
  * Monitoring Control
- * - startMonitoring(): 센서 모니터링 시작 (이벤트 기반)
+ * - startMonitoring(): 센서 모니터링 시작 (Workout Session 기반)
  * - stopMonitoring(): 센서 모니터링 중지
+ * - performSensorCleanup(): 센서 정리 작업 (백그라운드 안전 실행)
  *
- * Heart Rate Monitoring
- * - startHeartRateStreaming(): HealthKit을 사용한 심박수 실시간 스트리밍
- * - processHeartRateSamples(_:): 심박수 샘플 처리 및 센서 데이터 업데이트
- * - stopHeartRateStreaming(): 심박수 스트리밍 중지
+ * Workout Session Management
+ * - startWorkoutSession(): Workout 세션 시작 (Always-On Display 자동 활성화, 심박수 자동 수집)
+ * - stopWorkoutSession(): Workout 세션 종료
  *
  * Motion Monitoring
  * - startMotionUpdates(): CoreMotion을 사용한 가속도계/자이로스코프 데이터 수집 (이벤트 기반)
@@ -24,9 +24,11 @@ import Combine
  *
  * Permission Handling
  * - requestHealthKitAuthorization(): HealthKit 권한 요청
+ *
+ * NOTE: 심박수는 Workout Builder의 delegate 메서드(workoutBuilder:didCollectDataOf:)에서 자동 수집 👈
  */
 
-class WatchSensorManager: ObservableObject {
+class WatchSensorManager: NSObject, ObservableObject {
 
     // MARK: - Published Properties
 
@@ -48,31 +50,31 @@ class WatchSensorManager: ObservableObject {
     private let healthStore = HKHealthStore()
 
     // Purpose: CoreMotion 매니저 (Shared instance 사용 - 앱당 하나의 인스턴스만 사용해야 함)
-    private static let sharedMotionManager: CMMotionManager = {
+    private static let motionManager: CMMotionManager = {
         let manager = CMMotionManager()
-        manager.accelerometerUpdateInterval = 0.1
-        manager.gyroUpdateInterval = 0.1
         return manager
     }()
 
-    private let motionManager = WatchSensorManager.sharedMotionManager
+    // Purpose: Workout 세션 (Always-On Display 유지용)
+    private var workoutSession: HKWorkoutSession?
 
-    // Purpose: 심박수 쿼리 (스트리밍 중지를 위해 저장)
-    private var heartRateQuery: HKQuery?
+    // Purpose: Workout Builder (심박수 자동 수집용)
+    private var workoutBuilder: HKLiveWorkoutBuilder?
 
     // Purpose: 최근 디바이스 모션 데이터 (가속도계 + 자이로스코프 통합)
     private var latestDeviceMotion: CMDeviceMotion?
 
     // MARK: - Initialization
 
-    init() {
+    override init() {
+        super.init()
         // CMMotionManager는 shared instance 사용
     }
 
     // MARK: - Monitoring Control
 
     // ═══════════════════════════════════════
-    // PURPOSE: 센서 모니터링 시작
+    // PURPOSE: 센서 모니터링 시작 (Workout Session 기반)
     // ═══════════════════════════════════════
     func startMonitoring() async {
         // Step 1: HealthKit 권한 요청
@@ -83,11 +85,19 @@ class WatchSensorManager: ObservableObject {
                 errorMessage = "HealthKit 권한 요청 실패: \(error.localizedDescription)"
             }
             print("❌ HealthKit 권한 요청 실패: \(error)")
-            // HealthKit 실패해도 모션 센서는 사용 가능
+            return
         }
 
-        // Step 2: 심박수 스트리밍 시작
-        startHeartRateStreaming()
+        // Step 2: Workout 세션 시작 (Always-On Display 활성화)
+        do {
+            try await startWorkoutSession()
+        } catch {
+            await MainActor.run {
+                errorMessage = "Workout 세션 시작 실패: \(error.localizedDescription)"
+            }
+            print("❌ Workout 세션 시작 실패: \(error)")
+            return
+        }
 
         // Step 3: 모션 센서 시작 (이벤트 기반 실시간 업데이트)
         startMotionUpdates()
@@ -97,7 +107,7 @@ class WatchSensorManager: ObservableObject {
             isMonitoring = true
         }
 
-        print("✅ 센서 모니터링 시작 (이벤트 기반)")
+        print("✅ 센서 모니터링 시작 (Workout Session 기반)")
     }
 
     // ═══════════════════════════════════════
@@ -122,80 +132,64 @@ class WatchSensorManager: ObservableObject {
     // ═══════════════════════════════════════
     @MainActor
     private func performSensorCleanup() async {
-        stopHeartRateStreaming()
         stopMotionUpdates()
+        stopWorkoutSession()
     }
 
-    // MARK: - Heart Rate Monitoring
+    // MARK: - Workout Session Management
 
     // ═══════════════════════════════════════
-    // PURPOSE: HealthKit을 사용한 심박수 실시간 스트리밍
+    // PURPOSE: Workout 세션 시작 (Always-On Display 자동 활성화) 👈 workout세션 핵심부분
     // ═══════════════════════════════════════
-    private func startHeartRateStreaming() {
-        // Step 1: 심박수 타입 정의
-        guard let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
-            DispatchQueue.main.async {
-                self.errorMessage = "심박수 타입을 찾을 수 없습니다"
+    private func startWorkoutSession() async throws {
+        // Step 1: Workout 설정 생성 (운동 타입: 러닝)
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .running     // 러닝 운동 타입
+        configuration.locationType = .outdoor     // GPS 활성화 (거리 측정용)
+
+        // Step 2: Workout 세션 생성
+        let session = try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
+        session.delegate = self
+        workoutSession = session
+
+        // Step 3: Workout Builder 생성 (심박수 자동 수집용)
+        let builder = session.associatedWorkoutBuilder()
+        builder.delegate = self
+        builder.dataSource = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: configuration)
+        workoutBuilder = builder
+
+        // Step 4: 세션 시작 (Always-On Display 활성화)
+        session.startActivity(with: Date())
+
+        // Step 5: Builder 시작 (심박수 수집 시작) 👈 이부분에 의해서 심박수 측정이 시작됨 델리게이트 감지
+        try await builder.beginCollection(at: Date())
+
+        print("✅ Workout 세션 시작 (Always-On Display 활성화)")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: Workout 세션 종료
+    // ═══════════════════════════════════════
+    private func stopWorkoutSession() {
+        guard let session = workoutSession else { return }
+
+        // Step 1: 세션 종료
+        session.end()
+
+        // Step 2: Builder 종료 👈 이부분에 의해서 심박수 측정이 정지됨 델리게이트 감지
+        if let builder = workoutBuilder {
+            builder.endCollection(withEnd: Date()) { success, error in
+                if let error = error {
+                    print("❌ Workout Builder 종료 오류: \(error)")
+                }
             }
-            return
         }
 
-        // Step 2: 스트리밍 쿼리 생성
-        let query = HKAnchoredObjectQuery(
-            type: heartRateType,
-            predicate: nil,
-            anchor: nil,
-            limit: HKObjectQueryNoLimit
-        ) { [weak self] query, samples, deletedObjects, anchor, error in
-            // 초기 데이터 처리
-            self?.processHeartRateSamples(samples)
-        }
+        // Step 3: 참조 제거
+        workoutSession = nil
+        workoutBuilder = nil
 
-        // Step 3: 업데이트 핸들러 설정 (새로운 심박수 데이터 수신)
-        query.updateHandler = { [weak self] query, samples, deletedObjects, anchor, error in
-            self?.processHeartRateSamples(samples)
-        }
-
-        // Step 4: 쿼리 실행
-        healthStore.execute(query)
-        heartRateQuery = query
-
-        print("💓 심박수 스트리밍 시작")
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 심박수 샘플 처리 및 센서 데이터 업데이트
-    // ═══════════════════════════════════════
-    private func processHeartRateSamples(_ samples: [HKSample]?) {
-        guard let heartRateSamples = samples as? [HKQuantitySample],
-              let latestSample = heartRateSamples.last else {
-            return
-        }
-
-        // 심박수 값 추출 (bpm)
-        let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
-        let heartRate = latestSample.quantity.doubleValue(for: heartRateUnit)
-
-        DispatchQueue.main.async { [weak self] in
-            self?.currentHeartRate = heartRate
-
-            // Step: 심박수 업데이트 시 최신 모션 데이터와 결합하여 즉시 센서 데이터 갱신
-            if let motion = self?.latestDeviceMotion {
-                self?.createAndPublishSensorData(motion: motion)
-            }
-//            print("💓 심박수 업데이트: \(heartRate) bpm") 👈 디버깅이 많아서 주석처리
-        }
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 심박수 스트리밍 중지
-    // ═══════════════════════════════════════
-    private func stopHeartRateStreaming() {
-        if let query = heartRateQuery {
-            healthStore.stop(query)
-            heartRateQuery = nil
-            print("💓 심박수 스트리밍 중지")
-        }
+        print("⏹️ Workout 세션 종료")
     }
 
     // MARK: - Motion Monitoring
@@ -206,21 +200,21 @@ class WatchSensorManager: ObservableObject {
     // ═══════════════════════════════════════
     private func startMotionUpdates() {
         // Step 1: 디바이스 모션 사용 가능 여부 확인
-        print("🔍 디바이스 모션 사용 가능 여부: \(motionManager.isDeviceMotionAvailable)")
+        print("🔍 디바이스 모션 사용 가능 여부: \(WatchSensorManager.motionManager.isDeviceMotionAvailable)")
 
-        guard motionManager.isDeviceMotionAvailable else {
+        guard WatchSensorManager.motionManager.isDeviceMotionAvailable else {
             print("❌ 디바이스 모션을 사용할 수 없습니다")
-            DispatchQueue.main.async {
-                self.errorMessage = "모션 센서를 사용할 수 없습니다"
+            Task { @MainActor [weak self] in
+                self?.errorMessage = "모션 센서를 사용할 수 없습니다"
             }
             return
         }
 
-        // Step 2: 업데이트 주기 설정 (0.1초마다 업데이트)
-        motionManager.deviceMotionUpdateInterval = 0.1
+        // Step 2: 업데이트 주기 설정 (0.05초마다 업데이트 - 20Hz)
+        WatchSensorManager.motionManager.deviceMotionUpdateInterval = 0.05
 
         // Step 3: 디바이스 모션 업데이트 시작 - 이벤트 발생 즉시 센서 데이터 생성 및 전송
-        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
+        WatchSensorManager.motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
             if let error = error {
                 print("❌ 디바이스 모션 오류: \(error)")
                 return
@@ -240,7 +234,7 @@ class WatchSensorManager: ObservableObject {
     // PURPOSE: 모션 센서 업데이트 중지
     // ═══════════════════════════════════════
     private func stopMotionUpdates() {
-        motionManager.stopDeviceMotionUpdates()
+        WatchSensorManager.motionManager.stopDeviceMotionUpdates()
         latestDeviceMotion = nil
         print("📱 디바이스 모션 중지")
     }
@@ -261,7 +255,7 @@ class WatchSensorManager: ObservableObject {
         let gyroY = motion.rotationRate.y
         let gyroZ = motion.rotationRate.z
 
-        // Step 3: SensorData 객체 생성
+        // Step 3: SensorData 객체 생성 (GPS 거리는 별도 채널로 전송)
         let sensorData = SensorData(
             heartRate: currentHeartRate,
             accelerometerX: accelX,
@@ -292,7 +286,7 @@ class WatchSensorManager: ObservableObject {
             )
         }
 
-        // Step 2: 심박수 타입 정의
+        // Step 2: 심박수 및 Workout 타입 정의
         guard let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
             throw NSError(
                 domain: "WatchSensorManager",
@@ -301,15 +295,97 @@ class WatchSensorManager: ObservableObject {
             )
         }
 
-        // Step 3: 읽기 권한 요청
+        // Step 3: 읽기/쓰기 권한 요청 (Workout 세션을 위해 쓰기 권한 필요)
         let typesToRead: Set<HKObjectType> = [heartRateType]
+        let typesToShare: Set<HKSampleType> = [
+            HKObjectType.workoutType(),  // Workout 세션 생성 권한 (Always-On Display 활성화용)
+            heartRateType  // 심박수 기록 권한
+        ]
 
         do {
-            try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
-            print("✅ HealthKit 권한 승인")
+            try await healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead)
+            print("✅ HealthKit 권한 승인 (읽기 + 쓰기)")
         } catch {
             print("❌ HealthKit 권한 거부: \(error)")
             throw error
         }
+    }
+}
+
+// MARK: - HKWorkoutSessionDelegate
+
+extension WatchSensorManager: HKWorkoutSessionDelegate {
+
+    // ═══════════════════════════════════════
+    // PURPOSE: Workout 세션 상태 변경 처리
+    // ═══════════════════════════════════════
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didChangeTo toState: HKWorkoutSessionState,
+        from fromState: HKWorkoutSessionState,
+        date: Date
+    ) {
+        Task { @MainActor in
+            switch toState {
+            case .running:
+                print("✅ Workout 세션 실행 중")
+            case .ended:
+                print("⏹️ Workout 세션 종료됨")
+            case .paused:
+                print("⏸️ Workout 세션 일시정지")
+            default:
+                break
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: Workout 세션 실패 처리
+    // ═══════════════════════════════════════
+    func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        Task { @MainActor [weak self] in
+            self?.errorMessage = "Workout 세션 오류: \(error.localizedDescription)"
+            print("❌ Workout 세션 오류: \(error)")
+        }
+    }
+}
+
+// MARK: - HKLiveWorkoutBuilderDelegate
+
+extension WatchSensorManager: HKLiveWorkoutBuilderDelegate {
+
+    // ═══════════════════════════════════════
+    // PURPOSE: Workout Builder 데이터 수집 시작/중지 처리
+    // ═══════════════════════════════════════
+    func workoutBuilder(_ workoutBuilder: HKLiveWorkoutBuilder, didCollectDataOf collectedTypes: Set<HKSampleType>) {
+        // Step 1: 심박수 타입 확인
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate),
+              collectedTypes.contains(heartRateType) else {
+            return
+        }
+
+        // Step 2: 최신 심박수 통계 가져오기
+        guard let statistics = workoutBuilder.statistics(for: heartRateType),
+              let mostRecentSample = statistics.mostRecentQuantity() else {
+            return
+        }
+
+        // Step 3: 심박수 값 추출 (bpm)
+        let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
+        let heartRate = mostRecentSample.doubleValue(for: heartRateUnit)
+
+        // Step 4: 메인 스레드에서 업데이트
+        // NOTE: 센서 데이터는 모션 업데이트(20Hz)에서 생성되므로 여기서는 심박수만 업데이트
+        //       다음 모션 업데이트 시 최신 심박수가 자동으로 포함됨
+        Task { @MainActor [weak self] in
+            self?.currentHeartRate = heartRate
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: Workout Builder 이벤트 처리 (필요 시 구현)
+    // ═══════════════════════════════════════
+    func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {
+        // 필요 시 구현
     }
 }

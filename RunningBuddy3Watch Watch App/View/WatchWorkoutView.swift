@@ -7,6 +7,7 @@ struct WatchWorkoutView: View {
 
     @StateObject private var sensorManager = WatchSensorManager()
     @StateObject private var connectivity = WatchConnectivityManager.shared
+    @StateObject private var gpsManager = WatchGPSManager.shared
 
     // MARK: - Body
 
@@ -17,15 +18,7 @@ struct WatchWorkoutView: View {
                 headerSection
 
                 // 센서 데이터 표시
-                if sensorManager.isMonitoring {
-                    sensorDataSection
-                } else {
-                    placeholderSection
-                }
-
-                // 시작/중지 버튼
-                controlButton
-                    .padding(.top, 8)
+                sensorDataSection
             }
             .padding()
         }
@@ -33,6 +26,27 @@ struct WatchWorkoutView: View {
             // 센서 데이터가 업데이트되면 iPhone으로 전송
             if let data = newValue {
                 connectivity.sendSensorData(data)
+            }
+        }
+        .onChange(of: gpsManager.currentLocation?.timestamp) { oldValue, newValue in
+            // GPS 위치가 업데이트되면 iPhone으로 전송 (거리 계산은 iPhone에서)
+            if let location = gpsManager.currentLocation {
+                connectivity.sendLocation(location)
+            }
+        }
+        .onChange(of: connectivity.receivedCommand) { oldValue, newValue in
+            // iPhone으로부터 명령 수신 시 처리
+            guard let command = newValue else { return }
+
+            Task {
+                switch command {
+                case .start:
+                    await sensorManager.startMonitoring()
+                    gpsManager.startTracking() // GPS 추적 시작
+                case .stop:
+                    sensorManager.stopMonitoring()
+                    gpsManager.stopTracking() // GPS 추적 중지
+                }
             }
         }
     }
@@ -88,34 +102,81 @@ struct WatchWorkoutView: View {
             }
 
             // 센서 상태
-            if let sensorData = sensorManager.currentSensorData {
-                HStack(spacing: 16) {
-                    // 가속도계
-                    VStack(spacing: 2) {
-                        Image(systemName: "move.3d")
-                            .font(.caption)
-                            .foregroundColor(.blue)
+            HStack(spacing: 16) {
+                // 가속도계 X
+                VStack(spacing: 2) {
+                    Image(systemName: "move.3d")
+                        .font(.caption)
+                        .foregroundColor(.blue)
 
-                        Text("\(sensorData.accelerometerMagnitude, specifier: "%.2f")")
+                    if let sensorData = sensorManager.currentSensorData {
+                        Text("X: \(sensorData.accelerometerX, specifier: "%.2f")")
                             .font(.caption2)
                             .foregroundColor(.white)
-
-                        Text("m/s²")
-                            .font(.system(size: 8))
+                    } else {
+                        Text("X: --")
+                            .font(.caption2)
                             .foregroundColor(.gray)
                     }
 
-                    // 자이로스코프
-                    VStack(spacing: 2) {
-                        Image(systemName: "gyroscope")
-                            .font(.caption)
-                            .foregroundColor(.purple)
+                    Text("g")
+                        .font(.system(size: 8))
+                        .foregroundColor(.gray)
+                }
 
-                        Text("\(sensorData.gyroscopeMagnitude, specifier: "%.2f")")
+                // 자이로스코프 X
+                VStack(spacing: 2) {
+                    Image(systemName: "gyroscope")
+                        .font(.caption)
+                        .foregroundColor(.purple)
+
+                    if let sensorData = sensorManager.currentSensorData {
+                        Text("X: \(sensorData.gyroscopeX, specifier: "%.2f")")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                    } else {
+                        Text("X: --")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+
+                    Text("rad/s")
+                        .font(.system(size: 8))
+                        .foregroundColor(.gray)
+                }
+            }
+
+            // GPS 위치
+            VStack(spacing: 4) {
+                Image(systemName: "location.fill")
+                    .font(.caption)
+                    .foregroundColor(.green)
+
+                if let location = gpsManager.currentLocation {
+                    VStack(spacing: 2) {
+                        Text("위도: \(location.coordinate.latitude, specifier: "%.6f")")
                             .font(.caption2)
                             .foregroundColor(.white)
 
-                        Text("rad/s")
+                        Text("경도: \(location.coordinate.longitude, specifier: "%.6f")")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+
+                        Text("정확도: \(location.horizontalAccuracy, specifier: "%.1f")m")
+                            .font(.system(size: 8))
+                            .foregroundColor(.gray)
+                    }
+                } else {
+                    VStack(spacing: 2) {
+                        Text("위도: --")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+
+                        Text("경도: --")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+
+                        Text("GPS 대기 중...")
                             .font(.system(size: 8))
                             .foregroundColor(.gray)
                     }
@@ -124,49 +185,4 @@ struct WatchWorkoutView: View {
         }
     }
 
-    // MARK: - Placeholder Section
-
-    private var placeholderSection: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "figure.run")
-                .font(.system(size: 50))
-                .foregroundColor(.gray)
-
-            Text("준비됨")
-                .font(.headline)
-                .foregroundColor(.white)
-
-            Text("시작 버튼을 눌러주세요")
-                .font(.caption)
-                .foregroundColor(.gray)
-        }
-    }
-
-    // MARK: - Control Button
-
-    private var controlButton: some View {
-        Button {
-            if sensorManager.isMonitoring {
-                sensorManager.stopMonitoring()
-            } else {
-                Task {
-                    await sensorManager.startMonitoring()
-                }
-            }
-        } label: {
-            HStack {
-                Image(systemName: sensorManager.isMonitoring ? "stop.fill" : "play.fill")
-                Text(sensorManager.isMonitoring ? "중지" : "시작")
-                    .fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 25)
-                    .fill(sensorManager.isMonitoring ? Color.red : Color.green)
-            )
-            .foregroundColor(.white)
-        }
-        .buttonStyle(.plain)
-    }
 }

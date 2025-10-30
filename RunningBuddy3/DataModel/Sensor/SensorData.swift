@@ -3,10 +3,6 @@ import Foundation
 // Purpose: Apple Watch 센서 데이터 모델 (iPhone과 Watch 앱 공유)
 // MARK: - 함수 목록
 /*
- * Computed Properties
- * - accelerometerMagnitude: 가속도계 3축 벡터 크기
- * - gyroscopeMagnitude: 자이로스코프 3축 벡터 크기
- *
  * Conversion Methods
  * - toDictionary(): WatchConnectivity 전송을 위한 딕셔너리 변환
  * - fromDictionary(_:): 딕셔너리에서 SensorData 객체 생성
@@ -39,30 +35,6 @@ struct SensorData: Codable, Equatable {
 
     // Purpose: 데이터 측정 시간
     let timestamp: Date
-
-    // MARK: - Computed Properties
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 가속도계 3축 벡터 크기 계산 (√(x² + y² + z²))
-    // ═══════════════════════════════════════
-    var accelerometerMagnitude: Double {
-        sqrt(
-            pow(accelerometerX, 2) +
-            pow(accelerometerY, 2) +
-            pow(accelerometerZ, 2)
-        )
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 자이로스코프 3축 벡터 크기 계산 (√(x² + y² + z²))
-    // ═══════════════════════════════════════
-    var gyroscopeMagnitude: Double {
-        sqrt(
-            pow(gyroscopeX, 2) +
-            pow(gyroscopeY, 2) +
-            pow(gyroscopeZ, 2)
-        )
-    }
 
     // MARK: - Conversion Methods
 
