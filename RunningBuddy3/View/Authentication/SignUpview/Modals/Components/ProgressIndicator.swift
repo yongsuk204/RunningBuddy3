@@ -74,10 +74,6 @@ struct ProgressIndicator: View {
             .fill(fillColorForStep(index))
             .frame(width: circleSize, height: circleSize)
             .overlay(
-                Circle()
-                    .stroke(strokeColorForStep(index), lineWidth: 2)
-            )
-            .overlay(
                 // Checkmark for completed steps
                 Group {
                     if isStepCompleted(index) {

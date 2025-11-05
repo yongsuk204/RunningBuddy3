@@ -51,12 +51,8 @@ struct FindEmailView: View {
     var body: some View {
         ZStack {
             // 배경 그라데이션
-            LinearGradient(
-                colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            Color.clear
+                .appGradientBackground()
 
             VStack(spacing: 24) {
                 // 헤더
@@ -173,10 +169,6 @@ struct FindEmailView: View {
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    )
             )
         }
     }
@@ -210,10 +202,6 @@ struct FindEmailView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
                 )
 
                 Text("\(phoneNumber)로 발송된 인증번호를 입력하세요")
@@ -299,10 +287,6 @@ struct FindEmailView: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
                                     .fill(.ultraThinMaterial)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(selectedEmail == email ? Color.green : Color.white.opacity(0.2), lineWidth: 2)
-                                    )
                             )
                         }
                     }
@@ -330,10 +314,6 @@ struct FindEmailView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(isNextButtonEnabled ? Color.blue.opacity(0.5) : Color.gray.opacity(0.3))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                )
                         )
                 }
                 .disabled(!isNextButtonEnabled || isLoading)
@@ -350,10 +330,6 @@ struct FindEmailView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.green.opacity(0.5))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                )
                         )
                 }
             } else if !foundEmails.isEmpty {
@@ -375,10 +351,6 @@ struct FindEmailView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(selectedEmail != nil ? Color.blue.opacity(0.5) : Color.gray.opacity(0.3))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                            )
                     )
                 }
                 .disabled(selectedEmail == nil || isLoading)
@@ -396,10 +368,6 @@ struct FindEmailView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                            )
                     )
             }
         }

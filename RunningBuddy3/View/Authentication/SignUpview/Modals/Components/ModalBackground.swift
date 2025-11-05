@@ -43,19 +43,11 @@ struct FieldBackground: View {
     // MARK: - Properties
 
     let cornerRadius: CGFloat
-    let strokeColor: Color
-    let strokeWidth: CGFloat
 
     // MARK: - Initializer
 
-    init(
-        cornerRadius: CGFloat = 12,
-        strokeColor: Color = Color.white.opacity(0.2),
-        strokeWidth: CGFloat = 1
-    ) {
+    init(cornerRadius: CGFloat = 12) {
         self.cornerRadius = cornerRadius
-        self.strokeColor = strokeColor
-        self.strokeWidth = strokeWidth
     }
 
     // MARK: - Body
@@ -63,10 +55,6 @@ struct FieldBackground: View {
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
             .fill(.ultraThinMaterial)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(strokeColor, lineWidth: strokeWidth)
-            )
     }
 }
 

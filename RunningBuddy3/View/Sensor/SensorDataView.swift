@@ -1,20 +1,45 @@
 import SwiftUI
 import CoreLocation
+import MapKit
 
-// Purpose: iPhone에서 Apple Watch 센서 데이터 실시간 표시 및 CSV 저장 화면
+// Purpose: iPhone에서 Apple Watch 센서 데이터 실시간 표시 - 지도 기반 레이아웃
+// MARK: - 함수 목록
+/*
+ * View Components
+ * - body: 메인 뷰 (지도 + 수치 오버레이)
+ * - emptyMapView: GPS 데이터 없을 때 표시
+ * - fullScreenMap: 전체 화면 지도 (경로 + 마커)
+ * - metricsOverlay: 상단 상태 바 (팩토리 메서드 사용) + 하단 통합 수치 카드
+ * - workoutControlButton: 운동 시작/중지 버튼
+ * - recordButton: 데이터 기록 버튼
+ *
+ * Event Handlers
+ * - handleDistanceTap(): 지도 모드 전환 (자동 → 수동 → 방향)
+ * - startWorkoutMonitoring(): 워치 운동 측정 시작
+ * - stopWorkoutMonitoring(): 워치 운동 측정 중지
+ * - stopRecordingAndExport(): 기록 중지 및 CSV 내보내기
+ *
+ * Helper Methods
+ * - updateCameraPosition(): 지도 카메라 위치 업데이트
+ */
 struct SensorDataView: View {
 
+    // MARK: - Map Constants
+
+    // Purpose: 지도 관련 상수 정의
+    private enum MapConstants {
+        static let gpsAccuracyThreshold: CLLocationAccuracy = 50.0  // GPS 정확도 임계값 (m)
+        static let headingModeCameraDistance: CLLocationDistance = 1500  // 방향 모드 카메라 높이 (m)
+        static let minimumMapSpan: CLLocationDegrees = 0.01  // 최소 지도 영역 (약 1km)
+    }
+
     // MARK: - Properties
-    /*
-     작동 원리:
-       - 각 매니저의 @Published 프로퍼티 값이 변경되면
-       - SwiftUI가 자동으로 감지
-       - 해당 View를 자동으로 다시 렌더링
-     */
+
     @StateObject private var connectivityManager = PhoneConnectivityManager.shared
     @StateObject private var exporter = SensorDataExporter()
     @StateObject private var cadenceCalculator = CadenceCalculator.shared
     @StateObject private var distanceCalculator = DistanceCalculator.shared
+    @StateObject private var headingManager = HeadingManager.shared
 
     // Purpose: 파일 공유 시트 표시 여부
     @State private var showingShareSheet = false
@@ -31,53 +56,96 @@ struct SensorDataView: View {
     // Purpose: 워치 운동 측정 상태
     @State private var isWatchMonitoring = false
 
-    // Purpose: 측정 시작 시간
-    @State private var monitoringStartTime: Date?
+    // Purpose: 지도 카메라 위치
+    @State private var cameraPosition: MapCameraPosition = .automatic
+
+    // Purpose: 현재 지도 모드
+    @State private var mapMode: MapMode = .automatic
+
+    // Purpose: 프로그래밍 방식 카메라 업데이트 플래그 (사용자 조작과 구분)
+    @State private var isProgrammaticCameraUpdate = false
+
+    // MARK: - Computed Properties
+
+    // Purpose: GPS 좌표 배열
+    private var locations: [CLLocationCoordinate2D] {
+        distanceCalculator.locations
+    }
+
+    // Purpose: 시작 위치
+    private var startLocation: CLLocationCoordinate2D? {
+        locations.first
+    }
+
+    // Purpose: 현재 위치
+    private var currentLocation: CLLocationCoordinate2D? {
+        locations.last
+    }
+
+    // Purpose: GPS 신호 활성 상태 (정확도 임계값 이내)
+    private var isGPSActive: Bool {
+        guard let location = connectivityManager.receivedLocation,
+              location.horizontalAccuracy >= 0,
+              location.horizontalAccuracy <= MapConstants.gpsAccuracyThreshold else {
+            return false
+        }
+        return true
+    }
+
+    // Purpose: 지도 영역 계산 (한 번의 순회로 최적화)
+    private var mapRegion: MKCoordinateRegion? {
+        guard !locations.isEmpty else { return nil }
+
+        // Step 1: 한 번의 순회로 min/max 계산 (O(n))
+        var minLat = Double.infinity
+        var maxLat = -Double.infinity
+        var minLon = Double.infinity
+        var maxLon = -Double.infinity
+
+        for location in locations {
+            minLat = min(minLat, location.latitude)
+            maxLat = max(maxLat, location.latitude)
+            minLon = min(minLon, location.longitude)
+            maxLon = max(maxLon, location.longitude)
+        }
+
+        // Step 2: 중심점 및 영역 계산
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let latDelta = (maxLat - minLat) * 1.5
+        let lonDelta = (maxLon - minLon) * 1.5
+
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+            span: MKCoordinateSpan(
+                latitudeDelta: max(latDelta, MapConstants.minimumMapSpan),
+                longitudeDelta: max(lonDelta, MapConstants.minimumMapSpan)
+            )
+        )
+    }
 
     // MARK: - Body
 
     var body: some View {
         ZStack {
             // 배경 그라데이션
-            LinearGradient(
-                colors: [Color.blue.opacity(0.3), Color.purple.opacity(0.3), Color.teal.opacity(0.2)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            Color.clear
+                .appGradientBackground()
 
-            ScrollView {
-                VStack(spacing: 24) {
-                    // 상태 헤더
-                    statusHeader
-
-                    // 센서 데이터 카드들
-                    // 이동 거리 카드 (항상 표시)
-                    DistanceCard(distance: distanceCalculator.totalDistance)
-
-                    // 러닝 경로 지도 카드 (항상 표시)
-                    MapCard(locations: distanceCalculator.locations)
-
-                    // 심박수 카드 (항상 표시)
-                    HeartRateCard(heartRate: connectivityManager.receivedSensorData?.heartRate ?? 0)
-
-                    // 케이던스 카드 (항상 표시)
-                    CadenceCard(cadence: cadenceCalculator.currentCadence)
-
-                    // 타임스탬프 (데이터가 있을 때만 표시)
-                    if let timestamp = connectivityManager.receivedSensorData?.timestamp {
-                        Text("측정 시간: \(timestamp, style: .time)")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
-                            .padding(.top, 8)
-                    }
-                }
-                .padding()
+            // 전체 화면 지도
+            if locations.isEmpty {
+                emptyMapView
+            } else {
+                fullScreenMap
             }
+
+            // 수치 오버레이
+            metricsOverlay
         }
         .navigationTitle("실시간 센서")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 workoutControlButton
@@ -89,17 +157,22 @@ struct SensorDataView: View {
         }
         .onChange(of: connectivityManager.receivedSensorData) { oldValue, newValue in
             if let data = newValue {
-                // Step 1: CSV 저장용 데이터 추가
                 exporter.addSensorData(data)
-
-                // Step 2: 실시간 케이던스 계산용 버퍼에 추가 (슬라이딩 윈도우 자동 관리)
                 cadenceCalculator.addSensorData(data)
             }
         }
         .onChange(of: connectivityManager.receivedLocation) { oldValue, newValue in
-            // GPS 위치가 수신되면 DistanceCalculator로 전달
             if let location = newValue {
                 distanceCalculator.addLocation(location)
+            }
+        }
+        .onChange(of: locations.count) { oldValue, newValue in
+            updateCameraPosition()
+        }
+        .onChange(of: headingManager.currentHeading) { oldValue, newValue in
+            // 방향 모드일 때만 heading 변화에 따라 카메라 업데이트
+            if mapMode == .heading {
+                updateCameraPosition()
             }
         }
         .sheet(isPresented: $showingShareSheet) {
@@ -113,165 +186,123 @@ struct SensorDataView: View {
             Text(alertMessage)
         }
         .onAppear {
-            // 화면 진입 시 연결 상태 로그 출력
             print("📱 SensorDataView 진입 - Watch 연결 상태: \(connectivityManager.isWatchReachable)")
         }
-    }
-
-    // MARK: - Status Header
-
-    private var statusHeader: some View {
-        VStack(spacing: 12) {
-            // Apple Watch 연결 상태
-            watchConnectionStatus
-
-            // GPS 수신 상태
-            gpsSignalStatus
-
-            // 가속도계 상태
-            sensorStatus(
-                icon: "move.3d",
-                name: "가속도계",
-                isActive: connectivityManager.receivedSensorData != nil,
-                color: .blue
-            )
-
-            // 자이로스코프 상태
-            sensorStatus(
-                icon: "gyroscope",
-                name: "자이로스코프",
-                isActive: connectivityManager.receivedSensorData != nil,
-                color: .purple
-            )
+        .onDisappear {
+            // 뷰가 사라질 때 heading 업데이트 중지
+            headingManager.stopUpdatingHeading()
         }
     }
 
-    // MARK: - Watch Connection Status
+    // MARK: - Empty Map View
 
-    private var watchConnectionStatus: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "applewatch")
-                .font(.title2)
-                .foregroundColor(connectivityManager.isWatchReachable ? .green : .gray)
+    private var emptyMapView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "location.slash")
+                .font(.system(size: 60))
+                .foregroundColor(.white.opacity(0.3))
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(connectivityManager.isWatchReachable ? "Apple Watch 연결됨" : "Apple Watch 연결 안 됨")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                if let lastUpdate = connectivityManager.lastUpdateTime {
-                    Text("마지막 업데이트: \(lastUpdate, style: .relative)")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-            }
-
-            Spacer()
-
-            Circle()
-                .fill(connectivityManager.isWatchReachable ? Color.green : Color.gray)
-                .frame(width: 12, height: 12)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(connectivityManager.isWatchReachable ? Color.green.opacity(0.5) : Color.gray.opacity(0.3), lineWidth: 2)
-                )
-        )
-    }
-
-    // MARK: - GPS Signal Status
-
-    private var gpsSignalStatus: some View {
-        let location = connectivityManager.receivedLocation
-        let accuracy = location?.horizontalAccuracy ?? -1
-
-        // GPS 신호 강도 평가 (DistanceCalculator Extension 사용)
-        let signalQuality = distanceCalculator.evaluateSignalQuality(location)
-        let color = colorFromString(signalQuality.color)
-
-        return HStack(spacing: 8) {
-            Image(systemName: signalQuality.icon)
-                .font(.title2)
-                .foregroundColor(color)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(signalQuality.text)
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                if accuracy >= 0 {
-                    Text("정확도: ±\(String(format: "%.1f", accuracy))m")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-            }
-
-            Spacer()
-
-            Circle()
-                .fill(color)
-                .frame(width: 12, height: 12)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(color.opacity(0.5), lineWidth: 2)
-                )
-        )
-    }
-
-    // MARK: - Helper for Color Conversion
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 문자열 색상명을 SwiftUI Color로 변환
-    // PARAMETERS:
-    //   - colorName: 색상명 ("gray", "green", "orange", "red")
-    // RETURNS: 해당하는 SwiftUI Color
-    // ═══════════════════════════════════════
-    private func colorFromString(_ colorName: String) -> Color {
-        switch colorName {
-        case "gray": return .gray
-        case "green": return .green
-        case "orange": return .orange
-        case "red": return .red
-        default: return .gray
-        }
-    }
-
-    // MARK: - Sensor Status
-
-    private func sensorStatus(icon: String, name: String, isActive: Bool, color: Color) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(isActive ? color : .gray)
-
-            Text(isActive ? "\(name) 활성" : "\(name) 비활성")
+            Text("GPS 데이터 수집 중...")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(.white.opacity(0.8))
+
+            Text("운동을 시작하면 경로가 표시됩니다")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.6))
+        }
+    }
+
+    // MARK: - Full Screen Map
+
+    private var fullScreenMap: some View {
+        Map(position: $cameraPosition) {
+            // 경로 폴리라인
+            if locations.count > 1 {
+                MapPolyline(coordinates: locations)
+                    .stroke(.blue, lineWidth: 4)
+            }
+
+            // 시작 위치 마커
+            if let start = startLocation {
+                Annotation("시작", coordinate: start) {
+                    ZStack {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 30, height: 30)
+
+                        Image(systemName: "figure.run")
+                            .foregroundColor(.white)
+                            .font(.caption)
+                    }
+                }
+            }
+
+            // 현재 위치 마커
+            if let current = currentLocation,
+               let start = startLocation,
+               current.latitude != start.latitude || current.longitude != start.longitude {
+                Annotation("현재", coordinate: current) {
+                    ZStack {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 30, height: 30)
+                            .overlay(
+                                Circle()
+                                    .stroke(.white, lineWidth: 2)
+                            )
+
+                        Image(systemName: "location.fill")
+                            .foregroundColor(.white)
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+        .mapStyle(.standard(elevation: .realistic))
+        .onMapCameraChange(frequency: .onEnd) { _ in
+            // 사용자가 지도를 조작했을 때만 수동 모드로 전환
+            // (프로그래밍 방식 업데이트는 무시)
+            if !isProgrammaticCameraUpdate && (mapMode == .automatic || mapMode == .heading) {
+                mapMode = .manual
+                headingManager.stopUpdatingHeading()
+                print("📍 사용자 조작 감지 → 수동 모드 전환")
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Metrics Overlay
+
+    private var metricsOverlay: some View {
+        VStack(spacing: 0) {
+            // 상단: 컴팩트 상태 바
+            HStack(spacing: 8) {
+                Spacer()
+
+                CompactStatusCard.watchStatus(
+                    isReachable: connectivityManager.isWatchReachable
+                )
+
+                CompactStatusCard.gpsStatus(
+                    location: connectivityManager.receivedLocation,
+                    isActive: isGPSActive
+                )
+
+                Spacer()
+            }
 
             Spacer()
 
-            Circle()
-                .fill(isActive ? color : Color.gray)
-                .frame(width: 12, height: 12)
+            // 하단: 통합 수치 카드
+            UnifiedMetricsCard(
+                heartRate: connectivityManager.receivedSensorData?.heartRate,
+                cadence: cadenceCalculator.currentCadence,
+                distance: distanceCalculator.totalDistance,
+                mapMode: mapMode,
+                onDistanceTap: handleDistanceTap
+            )
+            .padding(.horizontal)
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(isActive ? color.opacity(0.5) : Color.gray.opacity(0.3), lineWidth: 2)
-                )
-        )
     }
 
     // MARK: - Workout Control Button
@@ -279,10 +310,8 @@ struct SensorDataView: View {
     private var workoutControlButton: some View {
         Button {
             if isWatchMonitoring {
-                // 워치 운동 중지 및 기록 저장
                 stopWorkoutMonitoring()
             } else {
-                // 워치 운동 시작
                 startWorkoutMonitoring()
             }
         } label: {
@@ -297,10 +326,8 @@ struct SensorDataView: View {
     private var recordButton: some View {
         Button {
             if exporter.isRecording {
-                // 녹화 중지 및 CSV 저장
                 stopRecordingAndExport()
             } else {
-                // 녹화 시작
                 exporter.startRecording()
             }
         } label: {
@@ -318,11 +345,76 @@ struct SensorDataView: View {
         }
     }
 
+    // MARK: - Metric Button Handlers
+
+    // Purpose: 거리 버튼 탭 핸들러 (지도 모드 순환: 자동 → 수동 → 방향 → 자동)
+    private func handleDistanceTap() {
+        withAnimation {
+            // Step 1: 다음 모드로 전환
+            mapMode = mapMode.next
+
+            // Step 2: heading 업데이트 관리
+            if mapMode == .heading {
+                // 방향 모드로 전환 시 나침반 업데이트 시작
+                headingManager.startUpdatingHeading()
+            } else {
+                // 다른 모드로 전환 시 나침반 업데이트 중지
+                headingManager.stopUpdatingHeading()
+            }
+
+            // Step 3: 자동 또는 방향 모드일 때 현재 위치로 이동
+            if mapMode == .automatic || mapMode == .heading {
+                updateCameraPosition()
+            }
+        }
+        print("📍 지도 모드 변경: \(mapMode.description)")
+    }
+
     // MARK: - Helper Methods
 
-    // ═══════════════════════════════════════
-    // PURPOSE: 워치 운동 측정 시작
-    // ═══════════════════════════════════════
+    private func updateCameraPosition() {
+        // Step 1: 프로그래밍 방식 업데이트임을 표시
+        isProgrammaticCameraUpdate = true
+
+        // Step 2: 모드에 따라 카메라 위치 업데이트
+        switch mapMode {
+        case .automatic:
+            // 자동 모드 - 경로 전체를 보여주는 region
+            if let region = mapRegion {
+                cameraPosition = .region(region)
+            }
+
+        case .manual:
+            // 수동 모드 - 카메라 업데이트 안 함 (사용자가 원하는 위치 유지)
+            break
+
+        case .heading:
+            // 방향 모드 - 현재 위치를 중심으로 사용자가 바라보는 방향에 맞춰 지도 표시
+            if let current = currentLocation {
+                let rawHeading = headingManager.currentHeading
+                let adjustedHeading = (rawHeading).truncatingRemainder(dividingBy: 360)
+
+                cameraPosition = .camera(
+                    MapCamera(
+                        centerCoordinate: current,
+                        distance: MapConstants.headingModeCameraDistance,
+                        heading: adjustedHeading
+                    )
+                )
+
+                print("🧭 Heading \(String(format: "%.0f", rawHeading))°")
+            }
+        }
+
+        // Step 3: 카메라 애니메이션 완료 후 플래그 해제 (약 300ms 대기)
+        // Note: 지도 애니메이션 완료를 보장하기 위한 고정 딜레이
+        // TODO: iOS 17+에서 withAnimation completion handler 사용 고려
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            isProgrammaticCameraUpdate = false
+        }
+    }
+
     private func startWorkoutMonitoring() {
         guard connectivityManager.isWatchReachable else {
             alertMessage = "Apple Watch가 연결되지 않았습니다"
@@ -330,60 +422,34 @@ struct SensorDataView: View {
             return
         }
 
-        // Step 1: 시작 시간 기록
-        monitoringStartTime = Date()
-
-        // Step 2: Watch에 시작 명령 전송
         connectivityManager.sendCommand(.start)
         isWatchMonitoring = true
-
-        // Step 3: CSV 녹화도 자동 시작
+        mapMode = .automatic // 운동 시작 시 자동 모드로 설정
         exporter.startRecording()
-
-        // Step 4: 실시간 케이던스 모니터링 시작 (타이머 및 버퍼 관리는 CadenceCalculator에서 수행)
         cadenceCalculator.startRealtimeMonitoring()
-
-        // Step 5: 거리 계산기 초기화
         distanceCalculator.resetDistance()
 
-        print("▶️ 워치 운동 측정 시작 (실시간 케이던스, 거리 계산 활성화)")
+        print("▶️ 워치 운동 측정 시작")
     }
 
-    // ═══════════════════════════════════════
-    // PURPOSE: 워치 운동 측정 중지
-    // ═══════════════════════════════════════
     private func stopWorkoutMonitoring() {
-        // Step 1: Watch에 중지 명령 전송
         connectivityManager.sendCommand(.stop)
         isWatchMonitoring = false
-
-        // Step 2: 실시간 모니터링 중지 (타이머 정지 및 버퍼 초기화는 CadenceCalculator에서 수행)
         cadenceCalculator.stopRealtimeMonitoring()
 
-        // Step 3: 녹화 중지 및 전체 데이터 가져오기
         let data = exporter.stopRecording()
 
-        // Step 4: 최종 케이던스 계산 및 업데이트 (전체 데이터 기반)
         if !data.isEmpty {
             cadenceCalculator.updateFinalCadence(from: data)
-        }
 
-        // Step 5: 알림 표시
-        if !data.isEmpty {
             let cadenceText = cadenceCalculator.currentCadence > 0 ? String(format: "평균 케이던스: %.1f SPM\n", cadenceCalculator.currentCadence) : ""
             alertMessage = "측정이 완료되었습니다\n\(cadenceText)(\(data.count)개 샘플)"
             showingAlert = true
         }
 
-        // Step 6: 상태 초기화
-        monitoringStartTime = nil
-
         print("⏹️ 워치 운동 측정 중지")
     }
 
-    // ═══════════════════════════════════════
-    // PURPOSE: 녹화 중지 및 CSV 파일 저장
-    // ═══════════════════════════════════════
     private func stopRecordingAndExport() {
         let data = exporter.stopRecording()
 
@@ -418,4 +484,12 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Preview
+
+#Preview("SensorDataView") {
+    NavigationStack {
+        SensorDataView()
+    }
 }

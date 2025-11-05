@@ -14,12 +14,8 @@ struct MainAppView: View {
         NavigationView {
             ZStack {
                 // 배경 그라데이션
-                LinearGradient(
-                    colors: [Color.green.opacity(0.3), Color.blue.opacity(0.3), Color.teal.opacity(0.2)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color.clear
+                    .appGradientBackground()
 
                 ScrollView {
                     VStack(spacing: 40) {
@@ -30,7 +26,7 @@ struct MainAppView: View {
                                 GridMenuButton(
                                     icon: "sensor.fill",
                                     title: "실시간 센서",
-                                    color: .green
+                                    color: .white
                                 )
                             }
 
@@ -39,16 +35,16 @@ struct MainAppView: View {
                                 GridMenuButton(
                                     icon: "person.circle.fill",
                                     title: "프로필",
-                                    color: .blue
+                                    color: .white
                                 )
                             }
 
                             // 설정
-                            NavigationLink(destination: Text("설정 화면 (준비중)")) {
+                            NavigationLink(destination: SettingsView()) {
                                 GridMenuButton(
                                     icon: "gearshape.fill",
                                     title: "설정",
-                                    color: .purple
+                                    color: .white
                                 )
                             }
                         }
@@ -71,11 +67,6 @@ struct MainAppView: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
                                     .fill(.ultraThinMaterial)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color.red.opacity(0.6), lineWidth: 2)
-                                    )
-                                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                             )
                         }
                         .padding(.horizontal)
@@ -110,11 +101,6 @@ struct GridMenuButton: View {
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(color.opacity(0.6), lineWidth: 2)
-                )
-                .shadow(color: color.opacity(0.3), radius: 10, x: 0, y: 5)
         )
     }
 }

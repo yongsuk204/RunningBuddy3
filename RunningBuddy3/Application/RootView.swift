@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  RootView.swift
 //  RunningBuddy3
 //
 //  Created by 배용석 on 9/18/25.
@@ -7,7 +7,8 @@
 
 import SwiftUI
 
-struct ContentView: View {
+// Purpose: 앱의 루트 뷰 - 인증 상태에 따라 LoginView 또는 MainAppView로 라우팅
+struct RootView: View {
     // Purpose: 인증 상태 관리
     @StateObject private var authManager = AuthenticationManager()
 
@@ -24,8 +25,4 @@ struct ContentView: View {
             }
         }
     }
-}
-
-#Preview {
-    ContentView()
 }

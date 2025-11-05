@@ -41,17 +41,6 @@ struct ModalButton: View {
             }
         }
 
-        var strokeColor: Color? {
-            switch self {
-            case .primary:
-                return Color.white.opacity(0.3)
-            case .secondary:
-                return Color.white.opacity(0.2)
-            case .text:
-                return nil
-            }
-        }
-
         var font: Font {
             switch self {
             case .primary:
@@ -131,37 +120,21 @@ struct ModalButton: View {
                             .fill(type.backgroundColor.opacity(isDisabled ? 0.3 : 1.0))
                     }
                 }
-                .overlay(
-                    // Step 2: 테두리 처리 (비활성화 시 투명도 감소)
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(
-                            isDisabled
-                                ? (type.strokeColor?.opacity(0.3) ?? Color.clear)
-                                : (type.strokeColor ?? Color.clear),
-                            lineWidth: 1
-                        )
-                )
             )
     }
 
     // MARK: - Secondary Button
 
-    // Purpose: 투명 배경에 테두리만 있는 보조 버튼 (Material 사용 안함)
+    // Purpose: 반투명 배경의 보조 버튼
     private var secondaryButtonContent: some View {
         Text(title)
             .font(type.font)
             .foregroundColor(isDisabled ? type.foregroundColor.opacity(0.5) : type.foregroundColor)
             .frame(maxWidth: .infinity)
             .padding()
-            .overlay(
-                // 배경 없이 테두리만 표시 (Ghost Button 스타일)
+            .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        isDisabled
-                            ? (type.strokeColor?.opacity(0.3) ?? Color.clear)
-                            : (type.strokeColor ?? Color.clear),
-                        lineWidth: 1
-                    )
+                    .fill(.ultraThinMaterial.opacity(isDisabled ? 0.3 : 0.5))
             )
     }
 

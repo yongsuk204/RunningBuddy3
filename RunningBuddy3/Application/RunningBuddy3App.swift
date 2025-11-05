@@ -160,7 +160,7 @@ struct RunningBuddy3App: App {
         WindowGroup {
             // NavigationView로 감싸서 화면 전환 기능 제공
             NavigationView {
-                ContentView()
+                RootView()
             }
         }
     }

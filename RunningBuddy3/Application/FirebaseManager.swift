@@ -3,7 +3,6 @@ import Firebase
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
-import FirebaseDatabase
 
 // Firebase 서비스들을 중앙 집중식으로 관리하는 싱글톤 클래스
 class FirebaseManager {
@@ -23,11 +22,6 @@ class FirebaseManager {
     // Firestore 데이터베이스 인스턴스 접근
     var firestore: Firestore {
         return Firestore.firestore()
-    }
-
-    // Firebase Realtime Database 인스턴스 접근
-    var realtime: DatabaseReference {
-        return Database.database().reference()
     }
 
     // MARK: - Initialization

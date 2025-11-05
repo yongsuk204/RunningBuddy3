@@ -18,12 +18,11 @@ import Combine
  * - Y축: 관상면 축 (몸 정면 방향이 +Y) → 전후 스윙 감지
  * - Z축: 시상면 축 (몸 중심 방향이 +Z) → 발 회전 감지
  *
- * 입각기 초반 감지 조건:
- * 1. X축 로컬 최대값 (착지 충격)
- * 2. X >= 1.5g (착지 임계값)
- * 3. Y < 0 (발이 앞으로 스윙 중)
- * 4. Gyroscope Z < 0 (발 뒤쪽 회전, 착지 순간)
- * 5. 최소 0.35초 간격 (노이즈 필터링)
+ * 입각기 초반 감지 조건 (상태 머신 방식):
+ * 1. 양수 구간 감지 (Gyro Z > 0 AND Accel Y > 0)
+ * 2. 양수 → 음수 전환 후 첫 번째 음수 피크만 검출 (Gyro Z <= -2.0)
+ * 3. 두 번째 음수 피크는 무시 (양수로 돌아올 때까지)
+ *
  *
  * 계산 방법:
  * 1. 왼발 착지 피크 검출 (완성된 간격만 사용)
@@ -152,7 +151,7 @@ class CadenceCalculator: ObservableObject {
     //   - sensorData: 센서 데이터 배열 (시간순 정렬 필요)
     // RETURNS: 평균 케이던스 (SPM - Steps Per Minute, 양발 기준)
     // ALGORITHM:
-    //   1. X축 로컬 피크 검출 (X >= 1.5g, Y < 0, Gyro Z < 0)
+    //   1. 상태 머신으로 첫 번째 음수 피크만 검출 (양수 → 음수1만 → 양수 복귀까지 무시)
     //   2. 완성된 간격 동안의 총 걸음 수 = (피크 수 - 1) × 2
     //   3. 런닝 시간 = 마지막 피크 - 첫 피크 (분 단위)
     //   4. SPM = 총 걸음 수 / 런닝 시간(분)
@@ -164,7 +163,7 @@ class CadenceCalculator: ObservableObject {
             return 0.0
         }
 
-        // Step 2: 입각기 초반 피크 검출 (X >= 1.5g, Y < 0, Gyro Z < 0)
+        // Step 2: 입각기 초반 피크 검출 (상태 머신: 양수 → 첫 음수만)
         let peaks = detectPeaksWithCondition(data: sensorData)
 
         // Step 3: 피크가 2개 이상 있어야 간격 계산 가능
@@ -200,57 +199,50 @@ class CadenceCalculator: ObservableObject {
     // MARK: - Helper Methods
 
     // ═══════════════════════════════════════
-    // PURPOSE: 입각기 초반 조건으로 피크 검출
+    // PURPOSE: 입각기 초반 조건으로 피크 검출 (상태 머신 방식)
     // CONDITIONS:
-    //   1. X축 로컬 최대값 (전후 데이터보다 큼)
-    //   2. X >= 1.5g (착지 충격)
-    //   3. Y < 0 (발이 앞으로 스윙 중)
-    //   4. Gyroscope Z < 0 (발 뒤쪽 회전, 착지 순간)
-    //   5. 이전 피크와 최소 0.35초 간격 (노이즈 필터링)
-    // RETURNS: 피크 인덱스 배열
+    //   상태 1 (WAITING_POSITIVE): 양수 구간 대기 (Gyro Z > 0 AND Accel Y > 0)
+    //   상태 2 (WAITING_FIRST_NEGATIVE): 첫 번째 음수 피크 대기 (Gyro Z <= -2.0)
+    //   상태 3 (IGNORING_UNTIL_POSITIVE): 양수 복귀까지 모든 음수 무시
+    // RETURNS: 피크 인덱스 배열 (첫 번째 음수 피크만)
     // ═══════════════════════════════════════
     private func detectPeaksWithCondition(data: [SensorData]) -> [Int] {
         var peaks: [Int] = []
-        var lastPeakTime: Date? = nil
 
-        // Step 1: 양끝 제외하고 순회 (i-1, i+1 접근 필요)
-        for i in 1..<(data.count - 1) {
+        // 상태 정의
+        enum DetectionState {
+            case waitingPositive        // 양수 구간 대기
+            case waitingFirstNegative   // 첫 번째 음수 대기
+            case ignoringUntilPositive  // 양수 복귀까지 무시
+        }
+
+        var state: DetectionState = .waitingPositive
+
+        // 모든 데이터 순회
+        for i in 0..<data.count {
             let current = data[i]
-            let prev = data[i - 1]
-            let next = data[i + 1]
 
-            // Step 2: 로컬 최대값 확인
-            guard prev.accelerometerX < current.accelerometerX &&
-                  current.accelerometerX > next.accelerometerX else {
-                continue
-            }
+            switch state {
+            case .waitingPositive:
+                // 양수 구간 감지 + 가속도계 Y가 양수일 때만 → 다음 상태로 전환
+                if current.gyroscopeZ > 0 && current.accelerometerY > 0 {
+                    state = .waitingFirstNegative
+                }
 
-            // Step 3: 조건 1 - X >= 1.5g (착지 충격)
-            guard current.accelerometerX >= 1.5 else {
-                continue
-            }
+            case .waitingFirstNegative:
+                // 첫 번째 음수 피크 감지
+                if current.gyroscopeZ <= -2.0 {
+                    // 피크로 인정
+                    peaks.append(i)
+                    state = .ignoringUntilPositive
+                }
 
-            // Step 4: 조건 2 - Y < 0 (입각기 초반, 발이 앞으로 스윙)
-            guard current.accelerometerY < 0 else {
-                continue
-            }
-
-            // Step 5: 조건 3 - Gyro Z < 0 (발 뒤쪽 회전, 착지 순간)
-            guard current.gyroscopeZ < 0 else {
-                continue
-            }
-
-            // Step 6: 조건 4 - 최소 간격 0.35초 (노이즈 필터링)
-            if let lastTime = lastPeakTime {
-                let interval = current.timestamp.timeIntervalSince(lastTime)
-                guard interval >= 0.35 else {
-                    continue
+            case .ignoringUntilPositive:
+                // 양수로 돌아올 때까지 모든 음수 무시
+                if current.gyroscopeZ > 0 {
+                    state = .waitingPositive
                 }
             }
-
-            // Step 7: 모든 조건 통과 → 피크로 인정
-            peaks.append(i)
-            lastPeakTime = current.timestamp
         }
 
         return peaks

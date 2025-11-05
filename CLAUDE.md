@@ -49,6 +49,7 @@ The project follows a modular MVVM architecture with clear separation of concern
   - `RunningBuddy3App.swift` - Main app entry point with Firebase initialization
   - `ContentView.swift` - Root navigation view
   - `FirebaseManager.swift` - Singleton for Firebase service access
+  - `Theme/ColorTheme.swift` - Fixed app color theme (Swedish/IKEA style: sky blue → lemon yellow)
 
 - **View/** - SwiftUI views organized by feature
   - `Authentication/` - Modal-based authentication system
@@ -69,6 +70,10 @@ The project follows a modular MVVM architecture with clear separation of concern
 
 - **DataModel/** - Data models and entities
   - `User/UserData.swift` - User model with Firestore serialization (all sensitive data hashed)
+  - `Sensor/SensorData.swift` - Watch sensor data model with dictionary serialization for WatchConnectivity
+
+- **Resource/** - App-wide resources
+  - `DesignSystem.swift` - Centralized design tokens (colors, spacing, typography, shadows)
 
 ### Key Architectural Patterns
 
@@ -95,6 +100,23 @@ The project follows a modular MVVM architecture with clear separation of concern
    - Form progression blocked until current step validates
 
 5. **Async/Await**: All Firebase operations use Swift's modern concurrency model with proper error handling
+
+6. **Watch-iPhone Communication**: Real-time sensor streaming using WatchConnectivity framework
+   - `PhoneConnectivityManager` (iPhone) receives sensor data and GPS locations from Watch
+   - `WatchConnectivityManager` (Watch) sends sensor data and receives workout commands
+   - Bidirectional message passing: commands (iPhone → Watch), data (Watch → iPhone)
+   - Event-driven architecture with `@Published` properties for reactive UI updates
+
+7. **Sensor Data Processing**: iPhone processes raw sensor data from Watch
+   - `CadenceCalculator.shared` - Real-time cadence (steps per minute) from accelerometer/gyroscope
+   - `DistanceCalculator.shared` - GPS-based distance tracking with route polyline
+   - `HeadingManager.shared` - Compass heading for map orientation
+   - `SensorDataExporter` - CSV export functionality for workout data
+
+8. **Design System**: Centralized design tokens in `DesignSystem.swift`
+   - Colors, spacing, typography, corner radius, shadows defined as enums
+   - View extensions (`.appGradientBackground()`, `.cardStyle()`, `.overlayCardStyle()`)
+   - Theme consistency enforced across all UI components
 
 ## Firebase Integration
 
@@ -229,10 +251,11 @@ Example function list format:
   - Firebase Auth `sendPasswordReset()` integration
 - **APNs integration**: Phone authentication support with silent push notification handling
 - **Alert-based error handling**: All authentication errors displayed via SwiftUI alerts (no inline error text)
+- **Fixed color theme**: Swedish/IKEA style with sky blue (#3399DB) to lemon yellow (#FFDE33) gradient applied across all views via `ThemeManager.shared`
 
 ### Known Limitations
 - Phone authentication requires real device (APNs unavailable in simulator)
-- watchOS app structure exists but features not yet implemented
+- watchOS app fully functional for sensor data collection and iPhone communication
 
 ## Error Message Handling Pattern
 
@@ -267,3 +290,162 @@ private func handleAction() async {
 - **Clear in `.onAppear`**: Prevents leftover messages from other views
 - **Clear after capture**: Prevents message from appearing in unrelated views
 - **This is defensive coding**: Both clearing points may seem redundant but provide safety against unexpected navigation flows
+
+## UI Theme System
+
+### Color Theme Architecture
+The app uses a **fixed color theme** system with Swedish/IKEA style colors applied consistently across all views:
+
+- **Theme File**: `Application/Theme/ColorTheme.swift`
+- **Manager**: `ThemeManager.shared` (singleton)
+- **Colors**:
+  - Gradient Start: Sky Blue `#3399DB` (RGB: 51, 153, 219)
+  - Gradient End: Lemon Yellow `#FFDE33` (RGB: 255, 222, 51)
+
+### Applying Theme to New Views
+All views with background gradients should use the theme system:
+
+```swift
+@StateObject private var themeManager = ThemeManager.shared
+
+var body: some View {
+    ZStack {
+        // Background gradient - Theme applied
+        LinearGradient(
+            colors: [
+                themeManager.currentTheme.gradientStart.opacity(0.6),
+                themeManager.currentTheme.gradientEnd.opacity(0.6)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+
+        // Your view content here
+    }
+}
+```
+
+### Current Theme Coverage
+- ✅ LoginView
+- ✅ SignUpView (and all signup modals)
+- ✅ FindEmailView
+- ✅ MainAppView
+- ✅ SensorDataView (uses DesignSystem for overlay cards)
+
+## watchOS Companion App
+
+### Directory Structure
+- **RunningBuddy3Watch Watch App/** - watchOS app (separate target)
+  - `WatchWorkoutView.swift` - Main workout interface
+  - `Service/WatchSensorManager.swift` - Heart rate, accelerometer, gyroscope collection
+  - `Service/WatchGPSManager.swift` - GPS location tracking
+  - `Service/WatchConnectivityManager.swift` - Communication with iPhone
+
+### Watch-to-iPhone Data Flow
+1. Watch collects sensor data (heart rate, motion) at high frequency
+2. Watch tracks GPS location with accuracy monitoring
+3. `WatchConnectivityManager` sends data to iPhone via `WCSession.sendMessage()`
+4. iPhone's `PhoneConnectivityManager` receives and processes data
+5. iPhone displays real-time metrics and map visualization
+
+### Workout Control Flow
+1. User starts workout on iPhone (taps play button in SensorDataView toolbar)
+2. iPhone sends "start" command to Watch via `PhoneConnectivityManager.sendCommand(.start)`
+3. Watch receives command and activates `WatchSensorManager` and `WatchGPSManager`
+4. Sensor data streams from Watch to iPhone during workout
+5. User stops workout on iPhone, triggering "stop" command to Watch
+
+## Sensor Data & Workout Tracking
+
+### Real-time Sensor Architecture
+The app uses a multi-layer architecture for processing Watch sensor data on iPhone:
+
+1. **Data Collection (Watch)**:
+   - `WatchSensorManager` - Collects heart rate, accelerometer, gyroscope data
+   - `WatchGPSManager` - Tracks GPS location with accuracy monitoring
+   - `WatchConnectivityManager` - Streams data to iPhone via WatchConnectivity
+
+2. **Data Reception (iPhone)**:
+   - `PhoneConnectivityManager.shared` - Receives sensor data and GPS locations
+   - Updates `@Published` properties that trigger UI updates
+   - Passes data to processing services
+
+3. **Data Processing (iPhone)**:
+   - `CadenceCalculator.shared` - Calculates steps per minute from accelerometer/gyroscope
+   - `DistanceCalculator.shared` - Calculates total distance from GPS coordinates
+   - `HeadingManager.shared` - Provides compass heading for map orientation
+   - `SensorDataExporter` - Exports workout data to CSV format
+
+### Map Modes in SensorDataView
+The app supports three map camera modes for GPS tracking:
+
+1. **Automatic Mode** (`MapMode.automatic`)
+   - Shows entire route with dynamic region calculation
+   - Camera automatically adjusts to fit all GPS points
+   - Icon: `location.fill`
+
+2. **Manual Mode** (`MapMode.manual`)
+   - User can pan/zoom the map freely
+   - Camera position preserved during workout
+   - Activated when user touches/drags map
+   - Icon: `hand.tap.fill`
+
+3. **Heading Mode** (`MapMode.heading`)
+   - Camera follows user's current heading (compass direction)
+   - Uses `HeadingManager` for real-time compass updates
+   - Fixed camera distance (1500m altitude)
+   - Icon: `location.north.line.fill`
+
+Users cycle through modes by tapping the distance metric card. Map mode changes trigger `handleDistanceTap()` in SensorDataView:358.
+
+### GPS Accuracy Thresholds
+- **Active GPS**: `horizontalAccuracy <= 50.0` meters (MapConstants.gpsAccuracyThreshold)
+- **Signal Quality Levels**: Very Good (<10m), Good (<20m), Fair (<50m), Poor (>=50m)
+- **Minimum Map Span**: 0.01 degrees (~1km) to prevent excessive zoom
+
+## Design System Usage
+
+### Applying Design Tokens
+All UI components should use `DesignSystem` tokens instead of hardcoded values:
+
+```swift
+// ✅ Correct - Uses design tokens
+Text("Hello")
+    .foregroundColor(DesignSystem.Colors.textPrimary)
+    .padding(DesignSystem.Spacing.md)
+
+// ❌ Incorrect - Hardcoded values
+Text("Hello")
+    .foregroundColor(.white)
+    .padding(16)
+```
+
+### Component Styling Patterns
+```swift
+// Background gradient
+.appGradientBackground(opacity: 0.6)
+
+// Card with material background
+.cardStyle(
+    cornerRadius: DesignSystem.CornerRadius.medium,
+    shadow: DesignSystem.Shadow.card
+)
+
+// Overlay card (semi-transparent, for map overlays)
+.overlayCardStyle(
+    cornerRadius: DesignSystem.CornerRadius.small,
+    shadow: DesignSystem.Shadow.subtle
+)
+```
+
+### Factory Method Pattern for Components
+Reusable components use static factory methods to encapsulate creation logic:
+
+```swift
+// Example: CompactStatusCard factory methods
+CompactStatusCard.watchStatus(isReachable: true)
+CompactStatusCard.gpsStatus(location: location, isActive: true)
+```
+
+This pattern is preferred over computed properties that simply wrap component initialization.

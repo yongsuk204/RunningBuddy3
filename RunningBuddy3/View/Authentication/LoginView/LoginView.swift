@@ -22,13 +22,9 @@ struct LoginView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // 배경 그라데이션 효과
-                LinearGradient(
-                    colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                // 배경 그라데이션
+                Color.clear
+                    .appGradientBackground()
                 
                 VStack(spacing: 20) {
                         // 앱 제목
@@ -53,12 +49,8 @@ struct LoginView: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(.ultraThinMaterial)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                    )
                             )
-                            
+
                             HStack {
                                 Image(systemName: "lock")
                                     .foregroundColor(.white.opacity(0.8))
@@ -71,10 +63,6 @@ struct LoginView: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(.ultraThinMaterial)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                    )
                             )
                         }
                         .padding(.horizontal)
@@ -92,10 +80,6 @@ struct LoginView: View {
                                 .background(
                                     RoundedRectangle(cornerRadius: 12)
                                         .fill(.ultraThinMaterial)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                        )
                                 )
                         }
                         .padding(.horizontal)

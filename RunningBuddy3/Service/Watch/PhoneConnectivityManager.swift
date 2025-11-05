@@ -76,6 +76,35 @@ class PhoneConnectivityManager: NSObject, ObservableObject {
         print("📱 WatchConnectivity 세션 활성화 시작")
     }
 
+    // MARK: - Reconnection
+
+    // ═══════════════════════════════════════
+    // PURPOSE: WCSession 수동 재연결 시도
+    // ═══════════════════════════════════════
+    func reconnect() {
+        guard let session = session else {
+            print("❌ WatchConnectivity가 지원되지 않습니다")
+            return
+        }
+
+        // Step 1: 현재 상태 확인
+        print("🔄 재연결 시도 중...")
+        print("  - 활성화 상태: \(session.activationState.rawValue)")
+        print("  - Paired: \(session.isPaired)")
+        print("  - Installed: \(session.isWatchAppInstalled)")
+        print("  - Reachable: \(session.isReachable)")
+
+        // Step 2: 세션 재활성화
+        if session.activationState != .activated {
+            session.activate()
+        }
+
+        // Step 3: 연결 상태 업데이트
+        DispatchQueue.main.async {
+            self.isWatchReachable = session.isReachable
+        }
+    }
+
     // MARK: - Command Transmission
 
     // ═══════════════════════════════════════

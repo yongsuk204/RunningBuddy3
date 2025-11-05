@@ -149,10 +149,6 @@ struct CompletionModal: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.green.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                )
         )
     }
 

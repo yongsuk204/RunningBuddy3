@@ -138,13 +138,7 @@ struct SecurityQuestionModal: View {
                 }
             }
             .padding()
-            .background(
-                FieldBackground(
-                    strokeColor: viewModel.signUpData.selectedSecurityQuestion.isEmpty
-                        ? Color.white.opacity(0.1)
-                        : Color.white.opacity(0.2)
-                )
-            )
+            .background(FieldBackground())
             .opacity(viewModel.signUpData.selectedSecurityQuestion.isEmpty ? 0.6 : 1.0)
         }
     }

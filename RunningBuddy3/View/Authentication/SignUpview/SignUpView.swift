@@ -24,12 +24,8 @@ struct SignUpView: View {
     // MARK: - Background Gradient
 
     private var backgroundGradient: some View {
-        LinearGradient(
-            colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        Color.clear
+            .appGradientBackground()
     }
 
     // MARK: - Main Content
