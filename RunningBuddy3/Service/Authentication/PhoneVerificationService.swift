@@ -4,11 +4,11 @@ import FirebaseCore
 import Combine
 import UIKit
 
-// Purpose: Firebase Phone Authentication 서비스 (FindEmailView 전용)
+// Purpose: SMS 인증 코드 검증 서비스 (이메일 찾기 전용)
 // MARK: - 함수 목록
 /*
- * Authentication Methods
- * - sendVerificationCode(): SMS 발송 (APNs 사일런트 푸시로 기기 검증 → SMS 발송)
+ * Verification Methods
+ * - sendVerificationCode(): SMS 인증 코드 발송 (APNs 사일런트 푸시로 기기 검증 → SMS 발송)
  * - verifyCode(): 6자리 코드 검증 및 Firebase 로그인
  * - resendVerificationCode(): 코드 재발송
  *
@@ -18,10 +18,10 @@ import UIKit
  * - createAuthUIDelegate(): reCAPTCHA 웹뷰용 UIDelegate 생성
  */
 @MainActor
-class PhoneAuthService: NSObject, ObservableObject {
+class PhoneVerificationService: NSObject, ObservableObject {
 
     // MARK: - Singleton
-    static let shared = PhoneAuthService()
+    static let shared = PhoneVerificationService()
     private override init() {
         super.init()
     }
@@ -45,7 +45,7 @@ class PhoneAuthService: NSObject, ObservableObject {
 
         // Step 1.5: Firebase Auth 초기화 확인 👈  FirebaseApp.configure() 초기화한거를 FirebaseApp.app() 인스턴스로 접근함
         guard FirebaseApp.app() != nil else {
-            let error = NSError(domain: "PhoneAuthService", code: -1,
+            let error = NSError(domain: "PhoneVerificationService", code: -1,
                                userInfo: [NSLocalizedDescriptionKey: "Firebase가 초기화되지 않았습니다."])
             isLoading = false
             errorMessage = error.localizedDescription
@@ -87,7 +87,7 @@ class PhoneAuthService: NSObject, ObservableObject {
                         } else {
                             print("⚠️ verificationID와 error 모두 nil")
                             let unknownError = NSError(
-                                domain: "PhoneAuthService",
+                                domain: "PhoneVerificationService",
                                 code: -1,
                                 userInfo: [NSLocalizedDescriptionKey: "알 수 없는 오류가 발생했습니다."]
                             )
@@ -99,7 +99,7 @@ class PhoneAuthService: NSObject, ObservableObject {
         }
     }
 
-    // Purpose: SMS 인증 코드 검증 (로그인하지만 isAuthenticated 변경 안 됨)
+    // Purpose: SMS 인증 코드 검증 (로그인하지만 currentUser 변경 안 됨)
     // Flow: verificationID + 코드 → Credential 생성 → 검증 완료
     // Note: 이메일 찾기 전용 (리스너 비활성화 → Firebase 로그인 → 리스너 활성화)
     func verifyCode(_ code: String, authManager: AuthenticationManager) async -> Result<Bool, Error> {
@@ -108,7 +108,7 @@ class PhoneAuthService: NSObject, ObservableObject {
 
         guard let verificationID = verificationID else {
             let error = NSError(
-                domain: "PhoneAuthService",
+                domain: "PhoneVerificationService",
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "인증 세션이 없습니다. 다시 시도해주세요."]
             )

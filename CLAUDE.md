@@ -14,31 +14,6 @@ RunningBuddy3 is an iOS application built with SwiftUI and Firebase, targeting i
 - **UI Framework**: SwiftUI
 - **Backend**: Firebase (Authentication, Firestore, Realtime Database)
 
-## Common Development Commands
-
-### Building and Running
-```bash
-# Open project in Xcode (primary development method)
-open RunningBuddy3.xcodeproj
-
-# Build for iPhone simulator
-xcodebuild -scheme RunningBuddy3 -destination 'platform=iOS Simulator,name=iPhone 16' build
-
-# Build for watchOS simulator
-xcodebuild -scheme "RunningBuddy3Watch Watch App" -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' build
-```
-
-### Testing
-Note: Firebase Phone Authentication requires a real device with APNs token. Simulator testing will fail for phone auth flows.
-
-```bash
-# Run unit tests (if available)
-xcodebuild -scheme RunningBuddy3 test -destination 'platform=iOS Simulator,name=iPhone 16'
-
-# Test authentication flows on real device (required for APNs)
-# Use Xcode GUI: Product > Run on connected device
-```
-
 ## Architecture Overview
 
 ### Directory Structure
@@ -60,13 +35,13 @@ The project follows a modular MVVM architecture with clear separation of concern
 
 - **Service/** - Business logic and external service integration
   - `Authentication/AuthenticationManager.swift` - Firebase Auth wrapper with state management
+  - `Authentication/PhoneVerificationService.swift` - SMS verification for email recovery (not login)
   - `User/UserService.swift` - Firestore user data management, hashing coordination, and email recovery
   - `Config/` - Validation and security services
-    - `SecurityService.swift` - SHA-512 hashing with salt/pepper
+    - `SecurityService.swift` - Unified hashing service with type-safe DataType enum (salt/pepper integrated)
     - `EmailValidator.swift` - RFC-compliant email validation
     - `PhoneNumberValidator.swift` - Korean phone number validation and formatting
     - `PasswordValidator.swift` - Password policy enforcement
-    - `Config.swift` - Security constants (salt/pepper values, gitignored)
 
 - **DataModel/** - Data models and entities
   - `User/UserData.swift` - User model with Firestore serialization (all sensitive data hashed)
@@ -84,8 +59,8 @@ The project follows a modular MVVM architecture with clear separation of concern
 
 2. **Singleton Services**: Core services use singleton pattern for app-wide state management
    - `FirebaseManager` - Firebase service access
-   - `UserService` - Data management and hashing coordination
-   - `SecurityService` - Cryptographic operations
+   - `UserService` - Data management with prepared-but-unused methods for future features
+   - `SecurityService` - Type-safe hashing with `DataType` enum (`.securityAnswer`, `.phoneNumber`)
    - Individual validators for email, phone, and password
 
 3. **Security-First Data Storage**: Selective hashing for optimal security and functionality
@@ -143,16 +118,39 @@ The project follows a modular MVVM architecture with clear separation of concern
 
 ## Security Considerations
 
-### Critical Security Files (gitignored)
-- `Config.swift` - Contains salt/pepper values for SHA-512 hashing
-- `GoogleService-Info.plist` - Firebase API keys and configuration
+### Critical Security Constants
+- **Salt/Pepper**: Defined as `private static let` in `SecurityService.swift`
+- **⚠️ IMPORTANT**: Salt/pepper values are permanent after first deployment - cannot be changed without invalidating all existing user data
+- **Before First Deployment**: Ensure salt/pepper are strong random strings (128+ characters recommended)
+- `GoogleService-Info.plist` - Firebase API keys and configuration (gitignored)
 
 ### Data Security Model
 - **Emails**: Stored in plaintext (Firebase Auth requirement, used for login)
-- **Phone Numbers**: SHA-512 hashed with salt/pepper before storage
-- **Security Answers**: SHA-512 hashed with salt/pepper before storage
+- **Phone Numbers**: SHA-512 hashed with salt before storage
+- **Security Answers**: SHA-512 hashed with pepper before storage
 - **Passwords**: Managed by Firebase Authentication (never stored locally)
 - **Password Validation**: Enforced client-side through `PasswordValidator`
+
+### SecurityService Architecture
+The unified `SecurityService` provides type-safe hashing:
+```swift
+enum DataType {
+    case securityAnswer  // Uses pepper
+    case phoneNumber     // Uses salt
+}
+
+// Hash any data type
+SecurityService.shared.hash(data, type: .phoneNumber)
+
+// Verify any data type
+SecurityService.shared.verify(input, hashedValue: stored, type: .securityAnswer)
+```
+
+Key features:
+- Single source of truth for all hashing operations
+- Automatic salt/pepper selection based on data type
+- Data normalization handled internally (lowercase for answers, remove hyphens for phone)
+- Private salt/pepper constants prevent external access
 
 ### APNs and Phone Authentication
 - APNs token registration required for Firebase Phone Authentication
@@ -202,15 +200,15 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
   - Used as document IDs in `publicdata` collection for duplicate checking
   - Required for Firebase email/password authentication
 - **Phone Number Storage**: Always hash before storage
-  - Hash using `SecurityService.shared.hashPhoneNumber()`
+  - Hash using `SecurityService.shared.hash(phoneNumber, type: .phoneNumber)`
   - Used for email recovery by phone number lookup
 - **Security Answers**: Always hash before storage
-  - Hash using `SecurityService.shared.hashSecurityAnswer()`
+  - Hash using `SecurityService.shared.hash(answer, type: .securityAnswer)`
 - **Hashing Location**: All hashing occurs in `UserService` layer
   - Never hash in UI components or `AuthenticationManager`
 - **Duplicate Checking Pattern**: Query `publicdata` by document ID
   - For emails: Use plaintext email as document ID
-- **Salt + Pepper**: `SecurityService` handles all cryptographic operations
+- **Salt + Pepper**: Integrated into `SecurityService` as private constants, automatically selected by `DataType`
 
 ### Code Style Conventions
 - **Purpose comments**: Every property and function has a "Purpose:" comment explaining its role
@@ -246,7 +244,8 @@ Example function list format:
 - **Duplicate prevention**: `publicdata` collection with email as document ID
 - **Korean phone validation**: Support for 010/011/016/017/018/019 prefixes with formatting
 - **Email recovery with password reset**:
-  - Phone number-based email lookup via `UserService.findEmailByPhoneNumber()`
+  - Phone number-based email lookup via `UserService.findEmailsByPhoneNumber()` (supports multiple accounts)
+  - SMS verification through `PhoneVerificationService` (not for login, only for email recovery)
   - Select found email and send password reset link without login
   - Firebase Auth `sendPasswordReset()` integration
 - **APNs integration**: Phone authentication support with silent push notification handling
@@ -256,6 +255,28 @@ Example function list format:
 ### Known Limitations
 - Phone authentication requires real device (APNs unavailable in simulator)
 - watchOS app fully functional for sensor data collection and iPhone communication
+
+### Prepared-But-Unused Methods
+Several methods in `UserService` are implemented but not currently used, marked with `STATUS: 🔜 준비 완료 (미사용)`:
+- `verifySecurityAnswer()` - For password reset/account recovery flows
+- `updateUserData()` - For profile editing, security question changes
+- `deleteUserData()` - For account deletion (cleans both `users` and `publicdata` collections)
+
+These methods are production-ready and waiting for UI implementation.
+
+## Data Migration Strategy
+
+The app uses **per-user progressive migration** executed during login:
+- `AuthenticationManager.signIn()` calls `UserService.migrateUserData(userId:)` after successful authentication
+- Migration runs once per user, updating their Firestore document structure
+- Failures are logged but don't block login (non-destructive)
+- Example: `hashedSecurityAnswer` → `securityAnswer` field rename
+
+When adding new migrations:
+1. Add migration logic to `UserService.migrateUserData()`
+2. Check for old field existence before updating
+3. Use `FieldValue.delete()` to remove deprecated fields
+4. Always fail gracefully - never throw errors that block user access
 
 ## Error Message Handling Pattern
 

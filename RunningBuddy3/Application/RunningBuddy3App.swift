@@ -50,27 +50,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             if granted {
                 // 권한이 승인되면 APNs 토큰 등록 시작
                 // Main 스레드에서 실행해야 함
-                /*
-                  APNs 토큰이 필요한 이유
-                  Firebase Phone Authentication은 **사일런트 푸시알림(Silent Push)**을 사용하여 기기검증을 수행합니다.
-
-                  1. 사용자가 전화번호 입력
-                           ↓
-                  2. Firebase가 해당 번호로 SMS 발송
-                           ↓
-                  3. 동시에 APNs를 통해 기기에 사일런트 푸시 전송
-                           ↓
-                  4. 앱이 사일런트 푸시 수신 (사용자는 모름)
-                           ↓
-                  5. Firebase가 "이 번호 요청이 실제 기기에서 온 것" 확인
-                           ↓
-                  6. SMS 인증 코드 전송 허용
-
-                  사일런트 푸시의 역할:
-                  - ✅ 봇/스팸 방지: 실제 iOS 기기에서만 작동
-                  - ✅ 어뷰징 방지: 무분별한 SMS 발송 차단
-                  - ✅ 빠른 검증: 네트워크 왕복 시간 단축
-                 */
                 DispatchQueue.main.async {
                     // APNs에 기기 등록 요청
                     // 성공 시: didRegisterForRemoteNotificationsWithDeviceToken 콜백 호출

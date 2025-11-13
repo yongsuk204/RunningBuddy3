@@ -8,12 +8,14 @@ import Combine
 /*
  * Authentication State
  * - setupAuthStateListener(): Firebase 인증 상태 변경 감지 설정
+ * - disableListener(): 리스너 일시 비활성화 (이메일 찾기 SMS 인증용)
+ * - enableListener(): 리스너 다시 활성화
  *
  * Authentication Methods
- * - signUp(): 이메일/비밀번호 회원가입 (UI에서 유효성 검사 완료 후 호출)
- * - signIn(): 이메일/비밀번호 로그인
+ * - signUp(): 이메일/비밀번호 회원가입
+ * - signIn(): 이메일/비밀번호 로그인 (마이그레이션 포함)
  * - signOut(): 로그아웃 처리
- * - deleteCurrentAccount(): 현재 계정 삭제 (계정만 정리)
+ * - deleteCurrentAccount(): 현재 계정 삭제
  * - sendPasswordReset(): 비밀번호 재설정 이메일 발송
  *
  * Error Handling
@@ -23,11 +25,8 @@ class AuthenticationManager: ObservableObject {
 
     // MARK: - Published Properties
 
-    // Purpose: 현재 로그인된 사용자 정보
+    // Purpose: 현재 로그인된 사용자 정보 (nil = 로그아웃, User 객체 = 로그인)
     @Published var currentUser: User?
-
-    // Purpose: 사용자 인증 여부 확인
-    @Published var isAuthenticated: Bool = false
 
     // Purpose: 로딩 상태 표시
     @Published var isLoading: Bool = false
@@ -40,7 +39,7 @@ class AuthenticationManager: ObservableObject {
     // Purpose: Firebase Auth 상태 리스너 핸들
     private var authStateHandle: AuthStateDidChangeListenerHandle?
 
-    // Purpose: 리스너 활성화 플래그 (이메일 찾기 전용)
+    // Purpose: 리스너 활성화 플래그 👈 리스너는 Auth의 변화가 있을때만 자동감지함
     private var isListenerEnabled: Bool = true
 
     // Purpose: Combine cancellables 저장
@@ -56,7 +55,6 @@ class AuthenticationManager: ObservableObject {
     }
 
     deinit {
-        // Purpose: 메모리 누수 방지를 위한 리스너 정리
         if let handle = authStateHandle {
             Auth.auth().removeStateDidChangeListener(handle)
         }
@@ -64,32 +62,36 @@ class AuthenticationManager: ObservableObject {
 
     // MARK: - Authentication State
 
-    // Purpose: Firebase 인증 상태 변경 감지 설정
+    // ═══════════════════════════════════════
+    // PURPOSE: Firebase 인증 상태 변경 감지 설정 👈 !!!리스너!!!
+    // Firebase Auth 서버에서 로그인유무를 확인해서 user 파라미터로 콜백해줌 👈 리스너는 이 콜백을 감지해서 값을 확인
+    // ═══════════════════════════════════════
     private func setupAuthStateListener() {
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in
-                // 리스너가 비활성화되어 있으면 무시
                 guard self?.isListenerEnabled == true else { return }
-
-                // Step 1: 사용자 정보 업데이트
                 self?.currentUser = user
-                // Step 2: 인증 상태 업데이트
-                self?.isAuthenticated = user != nil
             }
         }
     }
 
-    // Purpose: 리스너 일시 비활성화 (이메일 찾기 SMS 인증용)
+    // ═══════════════════════════════════════
+    // PURPOSE: 리스너 일시 비활성화 (이메일 찾기 SMS 인증용)
+    // ═══════════════════════════════════════
     func disableListener() {
         isListenerEnabled = false
     }
 
-    // Purpose: 리스너 다시 활성화
+    // ═══════════════════════════════════════
+    // PURPOSE: 리스너 다시 활성화
+    // ═══════════════════════════════════════
     func enableListener() {
         isListenerEnabled = true
     }
 
-    // Purpose: 현재 로그인된 계정만 삭제 (임시 전화번호 인증 계정 정리용)
+    // ═══════════════════════════════════════
+    // PURPOSE: 현재 로그인된 계정 삭제 (임시 전화번호 인증 계정 정리용)
+    // ═══════════════════════════════════════
     func deleteCurrentAccount() async throws {
         guard let user = Auth.auth().currentUser else {
             throw NSError(
@@ -100,12 +102,13 @@ class AuthenticationManager: ObservableObject {
         }
 
         try await user.delete()
-        print("✅ 계정 삭제 완료")
     }
 
     // MARK: - Authentication Methods
 
-    // Purpose: 이메일/비밀번호 회원가입
+    // ═══════════════════════════════════════
+    // PURPOSE: 이메일/비밀번호 회원가입
+    // ═══════════════════════════════════════
     func signUp(email: String, password: String, phoneNumber: String, securityQuestion: String?, securityAnswer: String?) async {
         // Step 1: 로딩 상태 시작
         await MainActor.run {
@@ -114,7 +117,7 @@ class AuthenticationManager: ObservableObject {
         }
 
         do {
-            // Step 2: Firebase 회원가입 시도 (UI에서 유효성 검사 완료됨)
+            // Step 2: Firebase 회원가입 시도
             let result = try await Auth.auth().createUser(withEmail: email, password: password)
 
             // Step 3: 사용자 정보를 Firestore에 저장
@@ -130,39 +133,34 @@ class AuthenticationManager: ObservableObject {
                 await MainActor.run {
                     self.errorMessage = "사용자 정보 저장 실패: \(error.localizedDescription)"
                 }
-                print("사용자 정보 저장 실패: \(error.localizedDescription)")
                 return
             }
 
-            // Step 4: publicdata 컬렉션에 해시된 이메일과 전화번호 저장
+            // Step 4: publicdata 컬렉션에 이메일 저장 (중복 가입 방지용)
             do {
                 try await userService.saveEmailToPublicData(email)
-                print("PublicData에 이메일 저장 성공")
             } catch {
                 // publicdata 저장 실패는 치명적이지 않으므로 로그만 남기고 진행
                 print("PublicData 이메일 저장 실패: \(error.localizedDescription)")
             }
 
-
-            // Step 5: 성공 로그
-            print("회원가입 성공: \(result.user.email ?? "")")
-
         } catch {
-            // Step 6: 에러 처리
+            // Step 5: 에러 처리
             await MainActor.run {
                 self.errorMessage = self.handleAuthError(error)
             }
-            print("회원가입 실패: \(error.localizedDescription)")
         }
 
-        // Step 7: 로딩 상태 종료
+        // Step 6: 로딩 상태 종료
         await MainActor.run {
             isLoading = false
         }
     }
 
-
-    // Purpose: 이메일/비밀번호로 로그인
+    // ═══════════════════════════════════════
+    // PURPOSE: 이메일/비밀번호로 로그인 (개인 마이그레이션 포함)
+    // 마이그레이션은
+    // ═══════════════════════════════════════
     func signIn(email: String, password: String) async {
         // Step 1: 로딩 상태 시작
         await MainActor.run {
@@ -174,15 +172,18 @@ class AuthenticationManager: ObservableObject {
             // Step 2: Firebase 로그인 시도
             let result = try await Auth.auth().signIn(withEmail: email, password: password)
 
-            // Step 3: 성공 로그
-            print("로그인 성공: \(result.user.email ?? "")")
+            // Step 3: 사용자 데이터 마이그레이션 (필드명 변경 등)
+            do {
+                try await userService.migrateUserData(userId: result.user.uid)
+            } catch {
+                print("⚠️ 데이터 마이그레이션 실패 (무시 가능): \(error.localizedDescription)")
+            }
 
         } catch {
             // Step 4: 에러 처리
             await MainActor.run {
                 self.errorMessage = self.handleAuthError(error)
             }
-            print("로그인 실패: \(error.localizedDescription)")
         }
 
         // Step 5: 로딩 상태 종료
@@ -191,21 +192,20 @@ class AuthenticationManager: ObservableObject {
         }
     }
 
-    // Purpose: 로그아웃 처리
+    // ═══════════════════════════════════════
+    // PURPOSE: 로그아웃 처리
+    // ═══════════════════════════════════════
     func signOut() {
         do {
-            // Step 1: Firebase 로그아웃 실행
             try Auth.auth().signOut()
-            print("로그아웃 성공")
-
         } catch {
-            // Step 2: 에러 처리
             errorMessage = handleAuthError(error)
-            print("로그아웃 실패: \(error.localizedDescription)")
         }
     }
 
-    // Purpose: 비밀번호 재설정 이메일 발송
+    // ═══════════════════════════════════════
+    // PURPOSE: 비밀번호 재설정 이메일 발송
+    // ═══════════════════════════════════════
     func sendPasswordReset(email: String) async {
         // Step 1: 로딩 상태 시작
         await MainActor.run {
@@ -221,14 +221,12 @@ class AuthenticationManager: ObservableObject {
             await MainActor.run {
                 self.errorMessage = "비밀번호 재설정 이메일이 발송되었습니다."
             }
-            print("비밀번호 재설정 이메일 발송 성공")
 
         } catch {
             // Step 4: 에러 처리
             await MainActor.run {
                 self.errorMessage = self.handleAuthError(error)
             }
-            print("비밀번호 재설정 실패: \(error.localizedDescription)")
         }
 
         // Step 5: 로딩 상태 종료
@@ -239,11 +237,13 @@ class AuthenticationManager: ObservableObject {
 
     // MARK: - Error Handling
 
-    // Purpose: Firebase 에러를 간소화된 메시지로 변환
+    // ═══════════════════════════════════════
+    // PURPOSE: Firebase Auth 에러를 한글 메시지로 변환
+    // NOTE: 보안상 간소화된 에러 메시지 제공
+    // ═══════════════════════════════════════
     private func handleAuthError(_ error: Error) -> String {
         let nsError = error as NSError
 
-        // 보안상 간소화된 에러 메시지
         switch nsError.code {
         case AuthErrorCode.invalidEmail.rawValue:
             return "올바른 이메일을 입력해주세요."

@@ -5,6 +5,7 @@ struct SettingsView: View {
 
     // MARK: - Properties
 
+    @EnvironmentObject var authManager: AuthenticationManager
     @StateObject private var connectivityManager = PhoneConnectivityManager.shared
     @State private var showingReconnectAlert = false
     @State private var reconnectMessage = ""
@@ -21,6 +22,9 @@ struct SettingsView: View {
                 VStack(spacing: 24) {
                     // Apple Watch 연결 섹션
                     watchConnectionSection
+
+                    // 계정 섹션
+                    accountSection
 
                     Spacer()
                 }
@@ -132,6 +136,45 @@ struct SettingsView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 16)
                         .fill(connectivityManager.isWatchReachable ? Color.blue.opacity(0.3) : Color.orange.opacity(0.5))
+                )
+            }
+        }
+    }
+
+    // MARK: - Account Section
+
+    private var accountSection: some View {
+        VStack(spacing: 16) {
+            // 섹션 헤더
+            HStack {
+                Image(systemName: "person.circle")
+                    .font(.title2)
+                    .foregroundColor(.white)
+
+                Text("계정")
+                    .font(.headline)
+                    .foregroundColor(.white)
+
+                Spacer()
+            }
+
+            // 로그아웃 버튼
+            Button {
+                authManager.signOut()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.title3)
+
+                    Text("로그아웃")
+                        .font(.headline)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
                 )
             }
         }

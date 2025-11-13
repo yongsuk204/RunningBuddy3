@@ -14,7 +14,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if authManager.isAuthenticated {
+            if authManager.currentUser != nil {
                 // Step 1: 로그인된 사용자는 메인 앱 화면으로
                 MainAppView()
                     .environmentObject(authManager)

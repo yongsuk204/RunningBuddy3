@@ -6,18 +6,21 @@ import FirebaseAuth
 // MARK: - 함수 목록
 /*
  * User Data Management
- * - saveUserData(): 회원가입 시 사용자 정보를 Firestore users 컬렉션에 저장 (해시화된 이메일로 저장)
+ * - saveUserData(): 회원가입 시 사용자 정보를 Firestore users 컬렉션에 저장
  * - getUserData(): 사용자 ID로 사용자 정보 조회
- * - verifySecurityAnswer(): 보안질문 답변 검증
- * - updateUserData(): 사용자 데이터 업데이트
- * - deleteUserData(): 사용자 데이터 삭제
+ * - verifySecurityAnswer(): 보안질문 답변 검증 👈 추후 사용예정
+ * - updateUserData(): 사용자 데이터 업데이트 👈 추후 사용예정
+ * - deleteUserData(): 사용자 데이터 삭제 👈 추후 사용예정
  *
  * Email Public Data Methods (중복 가입 방지용)
- * - checkEmailInPublicData(): publicdata 컬렉션에서 해시된 이메일 문서 ID로 중복 체크
- * - saveEmailToPublicData(): publicdata 컬렉션에 해시된 이메일을 문서 ID로 저장
+ * - checkEmailInPublicData(): publicdata 컬렉션에서 이메일 중복 체크
+ * - saveEmailToPublicData(): publicdata 컬렉션에 이메일 저장
+ *
+ * Data Migration
+ * - migrateUserData(): 로그인 시 사용자 데이터 마이그레이션 (필드명 변경 등)
  *
  * Email Recovery Methods
- * - findEmailByPhoneNumber(): 전화번호로 사용자 이메일 찾기 (이메일 찾기 기능용)
+ * - findEmailsByPhoneNumber(): 전화번호로 사용자 이메일 찾기 (복수 계정 지원)
  */
 class UserService {
 
@@ -50,10 +53,10 @@ class UserService {
     // ═══════════════════════════════════════
     func saveUserData(userId: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String) async throws {
         // Step 1: 전화번호 해시화 (이메일은 원본 저장)
-        let hashedPhoneNumber = securityService.hashPhoneNumber(phoneNumber)
+        let hashedPhoneNumber = securityService.hash(phoneNumber, type: .phoneNumber)
 
         // Step 2: 보안질문 답변 해시화
-        let hashedAnswer = securityService.hashSecurityAnswer(securityAnswer)
+        let hashedAnswer = securityService.hash(securityAnswer, type: .securityAnswer)
 
         // Step 3: UserData 객체 생성 👈 UserData() init!!
         let userData = UserData(
@@ -61,7 +64,7 @@ class UserService {
             email: email,  // 원본 이메일 저장
             phoneNumber: hashedPhoneNumber,
             securityQuestion: securityQuestion,
-            hashedSecurityAnswer: hashedAnswer
+            securityAnswer: hashedAnswer
         )
 
         // Step 4: Firestore에 저장 👈 userData.toDictionary() 상태로 저장!!
@@ -105,6 +108,7 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 보안질문 답변 검증
+    // STATUS: 준비 완료 (미사용) - 비밀번호 재설정, 계정 복구 등에서 사용 예정
     // ═══════════════════════════════════════
     func verifySecurityAnswer(userId: String, inputAnswer: String) async throws -> Bool {
         // Step 1: 사용자 데이터 조회
@@ -113,7 +117,7 @@ class UserService {
         }
 
         // Step 2: 보안질문 답변 검증
-        let isValid = securityService.verifySecurityAnswer(inputAnswer, hashedAnswer: userData.hashedSecurityAnswer)
+        let isValid = securityService.verify(inputAnswer, hashedValue: userData.securityAnswer, type: .securityAnswer)
 
         print("UserService: 보안질문 답변 검증 결과 - \(isValid)")
         return isValid
@@ -121,6 +125,7 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 사용자 데이터 업데이트
+    // STATUS: 준비 완료 (미사용) - 프로필 수정, 보안질문 변경 등에서 사용 예정
     // ═══════════════════════════════════════
     func updateUserData(userId: String, updates: [String: Any]) async throws {
         do {
@@ -134,6 +139,7 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 사용자 데이터 삭제 (users 컬렉션 + publicdata 컬렉션)
+    // STATUS: 준비 완료 (미사용) - 회원 탈퇴, 계정 삭제 기능에서 사용 예정
     // ═══════════════════════════════════════
     func deleteUserData(userId: String) async throws {
         do {
@@ -204,43 +210,46 @@ class UserService {
         }
     }
 
-    // MARK: - Email Recovery Methods
+    // MARK: - Data Migration
 
     // ═══════════════════════════════════════
-    // PURPOSE: 전화번호로 사용자 이메일 찾기 (이메일 찾기 기능용)
+    // PURPOSE: 사용자 데이터 마이그레이션 (필드명 변경 등)
+    // NOTE: 로그인 시 자동 실행 (개인별 점진적 적용)
+    // CURRENT: hashedSecurityAnswer → securityAnswer 필드명 변경
     // ═══════════════════════════════════════
-    func findEmailByPhoneNumber(_ phoneNumber: String) async throws -> String? {
-        do {
-            // Step 1: 전화번호 해시화
-            let hashedPhoneNumber = securityService.hashPhoneNumber(phoneNumber)
+    func migrateUserData(userId: String) async throws {
+        // Step 1: 해당 사용자 문서만 가져오기
+        let documentRef = firestore.collection(usersCollection).document(userId)
+        let document = try await documentRef.getDocument()
 
-            // Step 2: users 컬렉션에서 해당 전화번호를 가진 사용자 찾기
-            let querySnapshot = try await firestore.collection(usersCollection).getDocuments()
+        // Step 2: 문서가 없으면 종료
+        guard document.exists else {
+            print("⚠️ 사용자 문서 없음 (마이그레이션 불필요)")
+            return
+        }
 
-            for document in querySnapshot.documents {
-                if let userData = UserData.fromDictionary(document.data()),
-                   userData.phoneNumber == hashedPhoneNumber {
-                    print("UserService: 전화번호로 사용자 찾기 성공")
-                    return userData.email
-                }
-            }
-
-            print("UserService: 해당 전화번호의 사용자를 찾을 수 없음")
-            return nil
-
-        } catch {
-            print("UserService: 전화번호로 이메일 찾기 실패 - \(error.localizedDescription)")
-            throw UserServiceError.searchFailed(error.localizedDescription)
+        // Step 3: 기존 필드가 있는지 확인
+        if let oldValue = document.data()?["hashedSecurityAnswer"] as? String {
+            // Step 4: 신규 필드명으로 변경
+            try await documentRef.updateData([
+                "securityAnswer": oldValue,
+                "hashedSecurityAnswer": FieldValue.delete()
+            ])
+            print("✅ 개인 마이그레이션 완료: \(userId)")
+        } else {
+            print("⏭️ 마이그레이션 불필요 (이미 완료되었거나 신규 가입자)")
         }
     }
 
+    // MARK: - Email Recovery Methods
+
     // ═══════════════════════════════════════
-    // PURPOSE: 전화번호로 모든 이메일 찾기 (복수 계정 지원)
+    // PURPOSE: 전화번호로 사용자 이메일 찾기 (복수 계정 지원)
     // ═══════════════════════════════════════
     func findEmailsByPhoneNumber(_ phoneNumber: String) async throws -> [String] {
         do {
             // Step 1: 전화번호 해시화
-            let hashedPhoneNumber = securityService.hashPhoneNumber(phoneNumber)
+            let hashedPhoneNumber = securityService.hash(phoneNumber, type: .phoneNumber)
 
             // Step 2: users 컬렉션에서 해당 전화번호를 가진 모든 사용자 찾기
             let querySnapshot = try await firestore.collection(usersCollection).getDocuments()

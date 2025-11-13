@@ -44,7 +44,7 @@ struct FindEmailView: View {
     // 서비스 인스턴스
     private let phoneNumberValidator = PhoneNumberValidator.shared
     private let userService = UserService.shared
-    @StateObject private var phoneAuthService = PhoneAuthService.shared
+    @StateObject private var phoneVerificationService = PhoneVerificationService.shared
 
     // MARK: - Body
 
@@ -214,7 +214,7 @@ struct FindEmailView: View {
                 if canResendSMS {
                     Button("인증번호 재발송") {
                         Task {
-                            let _ = await phoneAuthService.resendVerificationCode(to: phoneNumber)
+                            let _ = await phoneVerificationService.resendVerificationCode(to: phoneNumber)
                             startSMSTimer()
                         }
                     }
@@ -471,7 +471,7 @@ struct FindEmailView: View {
         isLoading = true
 
         // Purpose: Firebase Phone Auth 사용
-        let result = await phoneAuthService.sendVerificationCode(to: phoneNumber)
+        let result = await phoneVerificationService.sendVerificationCode(to: phoneNumber)
 
         switch result {
         case .success(let verificationID):
@@ -489,7 +489,7 @@ struct FindEmailView: View {
             showingAlert = true
 
         case .failure(let error):
-            alertMessage = phoneAuthService.errorMessage ?? error.localizedDescription
+            alertMessage = phoneVerificationService.errorMessage ?? error.localizedDescription
             showingAlert = true
         }
 
@@ -501,7 +501,7 @@ struct FindEmailView: View {
         isLoading = true
 
         // Purpose: Firebase Phone Auth로 인증 코드 검증 (리스너 비활성화로 화면 전환 방지)
-        let result = await phoneAuthService.verifyCode(verificationCode, authManager: authManager)
+        let result = await phoneVerificationService.verifyCode(verificationCode, authManager: authManager)
 
         switch result {
         case .success(_):
@@ -516,7 +516,7 @@ struct FindEmailView: View {
             }
 
         case .failure(let error):
-            alertMessage = phoneAuthService.errorMessage ?? error.localizedDescription
+            alertMessage = phoneVerificationService.errorMessage ?? error.localizedDescription
             showingAlert = true
         }
 

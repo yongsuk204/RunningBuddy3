@@ -49,27 +49,6 @@ struct MainAppView: View {
                             }
                         }
                         .padding(.horizontal)
-
-                        // 로그아웃 버튼
-                        Button(action: {
-                            authManager.signOut()
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    .font(.title3)
-
-                                Text("로그아웃")
-                                    .font(.headline)
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(.ultraThinMaterial)
-                            )
-                        }
-                        .padding(.horizontal)
                         .padding(.bottom, 50)
                     }
                 }

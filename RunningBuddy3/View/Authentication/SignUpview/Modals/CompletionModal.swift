@@ -29,15 +29,15 @@ struct CompletionModal: View {
         .padding(.horizontal, 20)
         .alert("알림", isPresented: $showingAlert) {
             Button("확인") {
-                if authManager.isAuthenticated {
+                if authManager.currentUser != nil {
                     dismiss()
                 }
             }
         } message: {
             Text(alertMessage)
         }
-        .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
-            if isAuthenticated {
+        .onChange(of: authManager.currentUser) { _, currentUser in
+            if currentUser != nil {
                 alertMessage = "회원가입이 완료되었습니다!"
                 showingAlert = true
             }
