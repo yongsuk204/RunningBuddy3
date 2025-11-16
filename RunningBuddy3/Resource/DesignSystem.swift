@@ -9,6 +9,7 @@ import Combine
  * - text: 텍스트 색상 계층
  * - status: 상태별 색상
  * - card: 카드 배경
+ * - button: 버튼 배경 색상
  *
  * Spacing
  * - xs ~ xxl: 일관된 여백 값
@@ -27,6 +28,14 @@ import Combine
  *
  * Layout
  * - 카드/버튼 크기, 터치 영역
+ *
+ * View Extensions
+ * - appGradientBackground(): 배경 그라데이션
+ * - cardStyle(): 카드 스타일
+ * - overlayCardStyle(): 반투명 오버레이 카드
+ * - primaryButtonStyle(): 주요 버튼 스타일
+ * - secondaryButtonStyle(): 보조 버튼 스타일
+ * - inputFieldStyle(): 입력 필드 컨테이너 스타일
  */
 
 enum DesignSystem {
@@ -67,6 +76,13 @@ enum DesignSystem {
         static let heartRate = Color.red
         static let cadence = Color.orange
         static let distance = Color.blue
+
+        // MARK: Button
+        // Purpose: 버튼 배경 색상
+        static let buttonPrimary = Color.blue.opacity(0.5)      // 주요 액션 버튼
+        static let buttonSuccess = Color.green.opacity(0.5)     // 성공/확인 버튼 (회원가입 등)
+        static let buttonDisabled = Color.gray.opacity(0.3)     // 비활성 버튼
+        static let buttonSecondary = Material.ultraThinMaterial // 보조 버튼 (뒤로/취소 등)
     }
 
     // MARK: - Spacing
@@ -245,5 +261,41 @@ extension View {
                     y: shadow.y
                 )
         )
+    }
+
+    // Purpose: 주요 버튼 스타일 (Color 배경)
+    func primaryButtonStyle(backgroundColor: Color) -> some View {
+        self
+            .font(DesignSystem.Typography.headline)
+            .foregroundColor(DesignSystem.Colors.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                    .fill(backgroundColor)
+            )
+    }
+
+    // Purpose: 보조 버튼 스타일 (Material 배경)
+    func secondaryButtonStyle() -> some View {
+        self
+            .font(DesignSystem.Typography.headline)
+            .foregroundColor(DesignSystem.Colors.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                    .fill(DesignSystem.Colors.buttonSecondary)
+            )
+    }
+
+    // Purpose: 입력 필드 컨테이너 스타일 (.ultraThinMaterial 배경)
+    func inputFieldStyle() -> some View {
+        self
+            .padding(DesignSystem.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                    .fill(.ultraThinMaterial)
+            )
     }
 }

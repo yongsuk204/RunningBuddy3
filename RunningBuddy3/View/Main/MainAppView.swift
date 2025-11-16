@@ -40,7 +40,7 @@ struct MainAppView: View {
                             }
 
                             // 설정
-                            NavigationLink(destination: SettingsView()) {
+                            NavigationLink(destination: SettingsView().environmentObject(authManager)) {
                                 GridMenuButton(
                                     icon: "gearshape.fill",
                                     title: "설정",

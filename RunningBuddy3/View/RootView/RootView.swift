@@ -17,12 +17,11 @@ struct RootView: View {
             if authManager.currentUser != nil {
                 // Step 1: 로그인된 사용자는 메인 앱 화면으로
                 MainAppView()
-                    .environmentObject(authManager)
             } else {
                 // Step 2: 로그인 안된 사용자는 로그인 화면으로
                 LoginView()
-                    .environmentObject(authManager)
             }
         }
+        .environmentObject(authManager)  // ← Group 레벨에서 제공
     }
 }

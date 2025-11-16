@@ -74,14 +74,9 @@ struct ProgressIndicator: View {
             .fill(fillColorForStep(index))
             .frame(width: circleSize, height: circleSize)
             .overlay(
-                // Checkmark for completed steps
-                Group {
-                    if isStepCompleted(index) {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.blue)
-                    }
-                }
+                // 미진행 단계에 테두리 표시
+                Circle()
+                    .stroke(strokeColorForStep(index), lineWidth: 2)
             )
             .scaleEffect(isCurrentStep(index) ? 1.2 : 1.0)
             .animation(.spring(response: 0.5, dampingFraction: 0.6), value: currentStep)
@@ -148,4 +143,132 @@ struct ProgressIndicator: View {
             return incompleteColor
         }
     }
+}
+
+// MARK: - Previews
+
+#Preview("1단계 진행 (5단계 중)") {
+    ZStack {
+        // 실제 앱과 동일한 배경 그라데이션
+        LinearGradient(
+            colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+
+        VStack(spacing: 40) {
+            ProgressIndicator(
+                totalSteps: 5,
+                currentStep: 0,
+                stepTitles: ["이메일", "비밀번호", "전화번호", "보안질문", "완료"]
+            )
+            .padding()
+
+            Text("1단계: 이메일 입력")
+                .foregroundColor(.white)
+                .font(.headline)
+        }
+        .padding()
+    }
+}
+
+#Preview("3단계 진행 (5단계 중)") {
+    ZStack {
+        LinearGradient(
+            colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+
+        VStack(spacing: 40) {
+            ProgressIndicator(
+                totalSteps: 5,
+                currentStep: 2,
+                stepTitles: ["이메일", "비밀번호", "전화번호", "보안질문", "완료"]
+            )
+            .padding()
+
+            Text("3단계: 전화번호 입력")
+                .foregroundColor(.white)
+                .font(.headline)
+        }
+        .padding()
+    }
+}
+
+#Preview("완료 단계 (5단계 중)") {
+    ZStack {
+        LinearGradient(
+            colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+
+        VStack(spacing: 40) {
+            ProgressIndicator(
+                totalSteps: 5,
+                currentStep: 4,
+                stepTitles: ["이메일", "비밀번호", "전화번호", "보안질문", "완료"]
+            )
+            .padding()
+
+            Text("5단계: 완료")
+                .foregroundColor(.white)
+                .font(.headline)
+        }
+        .padding()
+    }
+}
+
+#Preview("3단계 진행 (제목 없음)") {
+    ZStack {
+        LinearGradient(
+            colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+
+        VStack(spacing: 40) {
+            ProgressIndicator(
+                totalSteps: 5,
+                currentStep: 2
+            )
+            .padding()
+
+            Text("제목 없이 점만 표시")
+                .foregroundColor(.white)
+                .font(.caption)
+        }
+        .padding()
+    }
+}
+
+#Preview("4단계 진행 (다크모드)") {
+    ZStack {
+        LinearGradient(
+            colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+
+        VStack(spacing: 40) {
+            ProgressIndicator(
+                totalSteps: 5,
+                currentStep: 3,
+                stepTitles: ["이메일", "비밀번호", "전화번호", "보안질문", "완료"]
+            )
+            .padding()
+
+            Text("4단계: 보안질문 입력")
+                .foregroundColor(.white)
+                .font(.headline)
+        }
+        .padding()
+    }
+    .preferredColorScheme(.dark)
 }

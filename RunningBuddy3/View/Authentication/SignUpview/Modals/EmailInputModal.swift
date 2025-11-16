@@ -89,7 +89,7 @@ struct EmailInputModal: View {
         .alert("이메일 입력", isPresented: $showingEmailInfo) {
             Button("확인") { }
         } message: {
-            Text("\n• 허용된 이메일 서비스: gmail, naver, daum, nate, yahoo\n• 예시) user@gmail.com")
+            Text("\n• 허용된 이메일 서비스\ngmail, naver, daum, nate, yahoo\n• 예시) user@gmail.com")
         }
     }
 
