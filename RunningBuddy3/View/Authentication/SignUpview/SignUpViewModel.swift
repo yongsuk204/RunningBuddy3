@@ -23,16 +23,17 @@ class SignUpViewModel: ObservableObject {
     // MARK: - Sign Up Steps
 
     enum SignUpStep: Int, CaseIterable {
-        case email = 0
-        case password = 1
-        case phoneNumber = 2
-        case security = 3
-        case completion = 4
+        case username = 0
+        case email = 1
+        case password = 2
+        case phoneNumber = 3
+        case security = 4
+        case completion = 5
     }
 
     // MARK: - Published Properties
 
-    @Published var currentStep: SignUpStep = .email
+    @Published var currentStep: SignUpStep = .username
     @Published var signUpData = SignUpData()
     @Published var validationStates = ValidationStates()
     @Published var isLoading = false
@@ -41,6 +42,7 @@ class SignUpViewModel: ObservableObject {
     // MARK: - Sign Up Data Model
 
     struct SignUpData: Equatable {
+        var username = ""
         var email = ""
         var password = ""
         var confirmPassword = ""
@@ -50,7 +52,8 @@ class SignUpViewModel: ObservableObject {
 
         // Purpose: 모든 필드가 입력되었는지 확인
         var isComplete: Bool {
-            return !email.isEmpty &&
+            return !username.isEmpty &&
+                   !email.isEmpty &&
                    !password.isEmpty &&
                    !confirmPassword.isEmpty &&
                    !phoneNumber.isEmpty &&
@@ -62,6 +65,7 @@ class SignUpViewModel: ObservableObject {
     // MARK: - Validation States
 
     struct ValidationStates: Equatable {
+        var usernameStatus: ValidationFeedbackIcon.ValidationStatus = .none
         var emailStatus: ValidationFeedbackIcon.ValidationStatus = .none
         var passwordStatus: ValidationFeedbackIcon.ValidationStatus = .none
         var confirmPasswordStatus: ValidationFeedbackIcon.ValidationStatus = .none
@@ -96,6 +100,8 @@ class SignUpViewModel: ObservableObject {
     // Purpose: 현재 단계의 유효성 검사 상태 확인
     private func isCurrentStepValid(for step: SignUpStep) -> Bool {
         switch step {
+        case .username:
+            return validationStates.usernameStatus == .valid
         case .email:
             return validationStates.emailStatus == .valid
         case .password:

@@ -10,7 +10,7 @@ struct LoginView: View {
     @StateObject private var themeManager = ThemeManager.shared
 
     // State Properties
-    @State private var email = ""
+    @State private var username = ""
     @State private var password = ""
     @State private var showingSignUp = false
     @State private var showingFindEmail = false
@@ -55,7 +55,7 @@ struct LoginView: View {
                 }
             }
             .onAppear {
-                // LoginView 진입 시 이전 에러 메시지 초기화
+                // LoginView 진입 시 이전 에러 메시지 초기화 = 에러 메시지 오염 방지(Error Message Pollution Prevention) 패턴
                 // Note: FindEmailView에서도 비밀번호 재설정 완료 후 초기화함
                 authManager.errorMessage = ""
             }
@@ -99,15 +99,15 @@ struct LoginView: View {
 
     private var contentSection: some View {
         VStack(spacing: DesignSystem.Spacing.md - 1) {
-            // 이메일 입력 필드
+            // 아이디 입력 필드
             HStack {
-                Image(systemName: "envelope")
+                Image(systemName: "person")
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                     .frame(width: DesignSystem.Spacing.lg)
 
-                TextField("", text: $email)
+                TextField("", text: $username)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .keyboardType(.emailAddress)
+                    .keyboardType(.asciiCapable)
                     .autocorrectionDisabled(true)
                     .textInputAutocapitalization(.never)
                     .textContentType(.oneTimeCode)
@@ -170,14 +170,14 @@ struct LoginView: View {
     }
 
     private var isLoginButtonEnabled: Bool {
-        !email.isEmpty && !password.isEmpty
+        !username.isEmpty && !password.isEmpty
     }
 
     // MARK: - Actions
 
     // Purpose: 로그인 처리 및 에러 메시지를 alert로 표시
     private func signIn() async {
-        await authManager.signIn(email: email, password: password)
+        await authManager.signIn(username: username, password: password)
 
         // 로그인 실패 시 에러 메시지를 alert로 표시
         if !authManager.errorMessage.isEmpty {

@@ -25,7 +25,7 @@ struct CompletionModal: View {
             navigationSection
         }
         .padding(30)
-        .background(ModalBackground())
+        .modalBackgroundStyle()
         .padding(.horizontal, 20)
         .alert("알림", isPresented: $showingAlert) {
             Button("확인") {
@@ -66,26 +66,33 @@ struct CompletionModal: View {
     private var summarySection: some View {
         VStack(spacing: 16) {
             summaryItem(
+                icon: "person",
+                title: "아이디",
+                value: viewModel.signUpData.username,
+                status: .valid
+            )
+
+            summaryItem(
                 icon: "envelope",
                 title: "이메일",
                 value: viewModel.signUpData.email,
                 status: .valid
             )
-            
+
             summaryItem(
                 icon: "phone",
                 title: "전화번호",
                 value: viewModel.signUpData.phoneNumber,
                 status: .valid
             )
-            
+
             summaryItem(
                 icon: "questionmark.circle",
                 title: "보안 질문",
                 value: viewModel.signUpData.selectedSecurityQuestion,
                 status: .valid
             )
-            
+
         }
     }
     
@@ -118,8 +125,7 @@ struct CompletionModal: View {
                 
                 ValidationFeedbackIcon(status: status)
             }
-            .padding()
-            .background(FieldBackground())
+            .inputFieldStyle()
         }
     }
     
@@ -144,7 +150,7 @@ struct CompletionModal: View {
                 Spacer()
             }
         }
-        .padding()
+        .inputFieldStyle()
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.green.opacity(0.1))
@@ -210,6 +216,7 @@ struct CompletionModal: View {
     private func performSignUp() {
         Task {
             await authManager.signUp(
+                username: viewModel.signUpData.username,
                 email: viewModel.signUpData.email,
                 password: viewModel.signUpData.password,
                 phoneNumber: viewModel.signUpData.phoneNumber,
@@ -218,63 +225,4 @@ struct CompletionModal: View {
             )
         }
     }
-}
-
-// MARK: - Previews
-
-#Preview("회원가입 완료 화면") {
-    // Purpose: 회원가입 정보가 모두 입력된 상태의 미리보기
-    CompletionModal(viewModel: {
-        let vm = SignUpViewModel()
-        vm.signUpData.email = "user@example.com"
-        vm.signUpData.password = "Password123!"
-        vm.signUpData.phoneNumber = "010-1234-5678"
-        vm.signUpData.selectedSecurityQuestion = "가장 좋아하는 음식은?"
-        vm.signUpData.securityAnswer = "피자"
-        return vm
-    }())
-    .environmentObject(AuthenticationManager())
-}
-
-#Preview("로딩 상태") {
-    // Purpose: 회원가입 중 로딩 상태 미리보기
-    CompletionModal(viewModel: {
-        let vm = SignUpViewModel()
-        vm.signUpData.email = "user@example.com"
-        vm.signUpData.password = "Password123!"
-        vm.signUpData.phoneNumber = "010-1234-5678"
-        vm.signUpData.selectedSecurityQuestion = "가장 좋아하는 음식은?"
-        vm.signUpData.securityAnswer = "피자"
-        return vm
-    }())
-    .environmentObject(AuthenticationManager())
-    // Note: Preview에서는 실제 로딩 상태를 시뮬레이션할 수 없음
-}
-
-#Preview("긴 이메일 주소") {
-    // Purpose: 긴 이메일 주소에서 레이아웃 테스트
-    CompletionModal(viewModel: {
-        let vm = SignUpViewModel()
-        vm.signUpData.email = "very.long.email.address@example-domain.com"
-        vm.signUpData.password = "Password123!"
-        vm.signUpData.phoneNumber = "010-9876-5432"
-        vm.signUpData.selectedSecurityQuestion = "어린 시절 가장 좋아했던 선생님의 성함은?"
-        vm.signUpData.securityAnswer = "김철수"
-        return vm
-    }())
-    .environmentObject(AuthenticationManager())
-}
-
-#Preview("다크모드") {
-    CompletionModal(viewModel: {
-        let vm = SignUpViewModel()
-        vm.signUpData.email = "user@example.com"
-        vm.signUpData.password = "Password123!"
-        vm.signUpData.phoneNumber = "010-1234-5678"
-        vm.signUpData.selectedSecurityQuestion = "가장 좋아하는 음식은?"
-        vm.signUpData.securityAnswer = "피자"
-        return vm
-    }())
-    .environmentObject(AuthenticationManager())
-    .preferredColorScheme(.dark)
 }

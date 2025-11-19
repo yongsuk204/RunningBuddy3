@@ -22,6 +22,7 @@ struct PhoneNumberInputModal: View {
 
     // Purpose: 전화번호 형식 검증 및 포맷팅 서비스 (모달 내부에서만 사용)
     private let phoneNumberValidator = PhoneNumberValidator.shared
+    private let userService = UserService.shared
 
     // Purpose: 전화번호 정보 도움말 알림창 표시 여부 (내부 UI 상태)
     @State private var showingPhoneInfo = false
@@ -48,7 +49,7 @@ struct PhoneNumberInputModal: View {
             navigationSection
         }
         .padding(30)
-        .background(ModalBackground())
+        .modalBackgroundStyle()
         .padding(.horizontal, 20)
         .onAppear {
             focusedField = .phoneNumber
@@ -114,8 +115,7 @@ struct PhoneNumberInputModal: View {
 
                 ValidationFeedbackIcon(status: viewModel.validationStates.phoneNumberStatus)
             }
-            .padding()
-            .background(FieldBackground())
+            .inputFieldStyle()
         }
     }
 
@@ -159,23 +159,44 @@ struct PhoneNumberInputModal: View {
         }
 
         // Step 2: 기본 형식 체크 (실시간 입력용)
-        guard phoneNumberValidator.isBasicValidFormat(formattedNumber) else {
-            viewModel.validationStates.phoneNumberStatus = .none
+        let validationResult = phoneNumberValidator.validatePhoneNumber(formattedNumber)
+
+        guard validationResult.isValid else {
+            viewModel.validationStates.phoneNumberStatus = .invalid
             return
         }
 
-        // 체크 중 상태로 변경
-        viewModel.validationStates.phoneNumberStatus = .checking
+        // Step 3: 형식이 유효하면 일단 none으로 유지 (아직 중복 검사 안 함)
+        viewModel.validationStates.phoneNumberStatus = .none
 
-        // 0.5초 디바운싱 후 상세 검증 실행
-        phoneCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+        // Step 4: 1초 디바운싱 후 중복 검사
+        phoneCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
             Task { @MainActor in
-                // Step 3: 전화번호 형식 상세 검증
-                let validationResult = phoneNumberValidator.validatePhoneNumber(formattedNumber)
-
-                // 유효성 검사 결과에 따라 상태 설정
-                viewModel.validationStates.phoneNumberStatus = validationResult.isValid ? .valid : .invalid
+                await performDuplicateCheck(formattedNumber)
             }
+        }
+    }
+
+    // Purpose: 전화번호 중복 검사 (형식 검증은 이미 완료된 상태)
+    private func performDuplicateCheck(_ phoneNumber: String) async {
+        // Step 1: 검증 중 상태 표시
+        viewModel.validationStates.phoneNumberStatus = .checking
+        print("PhoneNumberInputModal: 중복 검사 시작 - \(phoneNumber)")
+
+        // Step 2: 중복 검사 (Firestore query)
+        do {
+            let exists = try await userService.checkPhoneNumberExists(phoneNumber)
+            print("PhoneNumberInputModal: 중복 검사 완료 - exists: \(exists)")
+
+            if exists {
+                viewModel.validationStates.phoneNumberStatus = .invalid
+            } else {
+                viewModel.validationStates.phoneNumberStatus = .valid
+            }
+        } catch {
+            print("PhoneNumberInputModal: 중복 검사 실패 - \(error.localizedDescription)")
+            // 에러 발생 시 일단 통과시킴 (Firestore 인덱스 없을 때 대비)
+            viewModel.validationStates.phoneNumberStatus = .valid
         }
     }
 }

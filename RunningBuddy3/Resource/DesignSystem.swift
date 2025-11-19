@@ -214,6 +214,46 @@ class ThemeManager: ObservableObject {
 // Purpose: SwiftUI View에서 쉽게 사용할 수 있는 extension
 extension View {
 
+    // MARK: - Private Helpers
+
+    // Purpose: 공통 배경 스타일 헬퍼 (중복 제거)
+    private func styledBackground<S: ShapeStyle>(
+        fill: S,
+        cornerRadius: CGFloat,
+        shadow: DesignSystem.Shadow.Style
+    ) -> some View {
+        self.background(
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(fill)
+                .shadow(
+                    color: shadow.color,
+                    radius: shadow.radius,
+                    x: shadow.x,
+                    y: shadow.y
+                )
+        )
+    }
+
+    // Purpose: 공통 버튼 스타일 헬퍼 (중복 제거)
+    private func styledButton<S: ShapeStyle>(
+        font: Font,
+        foregroundColor: Color,
+        background: S,
+        cornerRadius: CGFloat = DesignSystem.CornerRadius.small
+    ) -> some View {
+        self
+            .font(font)
+            .foregroundColor(foregroundColor)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(background)
+            )
+    }
+
+    // MARK: - Background Styles
+
     // Purpose: 배경 그라데이션 적용
     func appGradientBackground(opacity: Double = 0.6) -> some View {
         self.background(
@@ -234,15 +274,10 @@ extension View {
         cornerRadius: CGFloat = DesignSystem.CornerRadius.medium,
         shadow: DesignSystem.Shadow.Style = DesignSystem.Shadow.card
     ) -> some View {
-        self.background(
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(DesignSystem.Colors.cardBackground)
-                .shadow(
-                    color: shadow.color,
-                    radius: shadow.radius,
-                    x: shadow.x,
-                    y: shadow.y
-                )
+        styledBackground(
+            fill: DesignSystem.Colors.cardBackground,
+            cornerRadius: cornerRadius,
+            shadow: shadow
         )
     }
 
@@ -251,51 +286,88 @@ extension View {
         cornerRadius: CGFloat = DesignSystem.CornerRadius.medium,
         shadow: DesignSystem.Shadow.Style = DesignSystem.Shadow.card
     ) -> some View {
-        self.background(
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(DesignSystem.Colors.overlayCardBackground)
-                .shadow(
-                    color: shadow.color,
-                    radius: shadow.radius,
-                    x: shadow.x,
-                    y: shadow.y
-                )
+        styledBackground(
+            fill: DesignSystem.Colors.overlayCardBackground,
+            cornerRadius: cornerRadius,
+            shadow: shadow
         )
     }
 
+    // MARK: - Button Styles
+
     // Purpose: 주요 버튼 스타일 (Color 배경)
     func primaryButtonStyle(backgroundColor: Color) -> some View {
-        self
-            .font(DesignSystem.Typography.headline)
-            .foregroundColor(DesignSystem.Colors.textPrimary)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                    .fill(backgroundColor)
-            )
+        styledButton(
+            font: DesignSystem.Typography.headline,
+            foregroundColor: DesignSystem.Colors.textPrimary,
+            background: backgroundColor
+        )
     }
 
     // Purpose: 보조 버튼 스타일 (Material 배경)
     func secondaryButtonStyle() -> some View {
-        self
-            .font(DesignSystem.Typography.headline)
-            .foregroundColor(DesignSystem.Colors.textPrimary)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                    .fill(DesignSystem.Colors.buttonSecondary)
-            )
+        styledButton(
+            font: DesignSystem.Typography.headline,
+            foregroundColor: DesignSystem.Colors.textPrimary,
+            background: DesignSystem.Colors.buttonSecondary
+        )
     }
 
     // Purpose: 입력 필드 컨테이너 스타일 (.ultraThinMaterial 배경)
     func inputFieldStyle() -> some View {
         self
             .padding(DesignSystem.Spacing.md)
+            .styledBackground(
+                fill: Material.ultraThinMaterial,
+                cornerRadius: DesignSystem.CornerRadius.small,
+                shadow: DesignSystem.Shadow.Style(color: .clear, radius: 0, x: 0, y: 0)
+            )
+    }
+
+    // MARK: - Modal Styles
+
+    // Purpose: 모달 배경 스타일 (Glass UI)
+    func modalBackgroundStyle(
+        cornerRadius: CGFloat = DesignSystem.CornerRadius.large,
+        shadow: DesignSystem.Shadow.Style = DesignSystem.Shadow.strong
+    ) -> some View {
+        styledBackground(
+            fill: Material.ultraThinMaterial,
+            cornerRadius: cornerRadius,
+            shadow: shadow
+        )
+    }
+
+    // Purpose: 모달 Primary 버튼 스타일 (Glass UI 효과)
+    func modalPrimaryButtonStyle(isDisabled: Bool = false) -> some View {
+        self
+            .font(DesignSystem.Typography.headline)
+            .foregroundColor(isDisabled ? DesignSystem.Colors.textDisabled : DesignSystem.Colors.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding()
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                    .fill(.ultraThinMaterial)
+                    .fill(isDisabled ? AnyShapeStyle(DesignSystem.Colors.buttonDisabled) : AnyShapeStyle(Material.ultraThinMaterial))
             )
+    }
+
+    // Purpose: 모달 Secondary 버튼 스타일 (반투명 배경)
+    func modalSecondaryButtonStyle(isDisabled: Bool = false) -> some View {
+        self
+            .font(DesignSystem.Typography.subheadline)
+            .foregroundColor(isDisabled ? DesignSystem.Colors.textDisabled : DesignSystem.Colors.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                    .fill(Material.ultraThinMaterial.opacity(isDisabled ? 0.3 : 0.5))
+            )
+    }
+
+    // Purpose: 모달 Text 버튼 스타일 (배경 없음)
+    func modalTextButtonStyle(isDisabled: Bool = false) -> some View {
+        self
+            .font(DesignSystem.Typography.caption)
+            .foregroundColor(isDisabled ? DesignSystem.Colors.textDisabled : DesignSystem.Colors.textPrimary.opacity(DesignSystem.Opacity.veryStrong))
     }
 }

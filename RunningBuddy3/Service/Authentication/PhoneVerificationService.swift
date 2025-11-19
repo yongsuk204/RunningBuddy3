@@ -43,7 +43,7 @@ class PhoneVerificationService: NSObject, ObservableObject {
         // Step 1: 전화번호 형식 변환 (한국 번호 → 국제 형식)
         let formattedNumber = formatPhoneNumber(phoneNumber)
 
-        // Step 1.5: Firebase Auth 초기화 확인 👈  FirebaseApp.configure() 초기화한거를 FirebaseApp.app() 인스턴스로 접근함
+        // Step 1.5: Firebase Auth 초기화 확인 👈  RunningBuddy3App.swift:41번줄 FirebaseApp.configure() 초기화한거를 FirebaseApp.app() 인스턴스로 접근함
         guard FirebaseApp.app() != nil else {
             let error = NSError(domain: "PhoneVerificationService", code: -1,
                                userInfo: [NSLocalizedDescriptionKey: "Firebase가 초기화되지 않았습니다."])

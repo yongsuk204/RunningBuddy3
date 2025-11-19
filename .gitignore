@@ -1,35 +1,117 @@
-# Firebase 설정 파일 (민감한 API 키 포함)
+# Xcode
+#
+# gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
+
+## User settings
+xcuserdata/
+
+## compatibility with Xcode 8 and earlier (ignoring not required starting Xcode 9)
+*.xcscmblueprint
+*.xccheckout
+
+## compatibility with Xcode 3 and earlier (ignoring not required starting Xcode 4)
+build/
+DerivedData/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+## Obj-C/Swift specific
+*.hmap
+
+## App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+#
+.build/
+
+# CocoaPods
+#
+# Pods/
+
+# Carthage
+#
+Carthage/Build/
+
+# Accio dependency management
+Dependencies/
+.accio/
+
+# fastlane
+#
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+#
+iOSInjectionProject/
+
+# Firebase
+# IMPORTANT: Only ignore Firebase config files, not all plist files
 GoogleService-Info.plist
 serviceAccountKey.json
-*.log
-.firebaserc
 firebase.json
+.firebaserc
 
-# 보안 설정 파일 (Service/Config 폴더의 모든 Swift 파일)
-RunningBuddy3/Service/Config/*.swift
-
-# Apple Developer 인증서 및 키 파일
-*.p8
-
-# Xcode 프로젝트 파일
-*.xcodeproj
-*.plist
-*.entitlements
-
-# Xcode 사용자별 설정
-*.xcuserdata
-
-# 빌드 결과물
-DerivedData/
-*.xcworkspace/xcshareddata/
-
-# 환경 변수
-.env
-
-# Firebase Functions (전체 폴더)
+# Firebase Functions
 functions/
 
-# 데이터 분석용 파일들
+# Security Configuration Files
+# Contains sensitive pepper values and security constants
+RunningBuddy3/Service/Authentication/SecurityService.swift
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Backup files
+*~.nib
+*.swp
+*~
+
+# Environment variables
+.env
+
+# Apple Developer certificates and keys
+*.p8
+
+# Data analysis files
 *.ipynb
 *.csv
 *.png
+
+# Logs
+*.log

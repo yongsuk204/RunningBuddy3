@@ -31,7 +31,7 @@ struct SecurityQuestionModal: View {
             navigationSection
         }
         .padding(30)
-        .background(ModalBackground())
+        .modalBackgroundStyle()
         .padding(.horizontal, 20)
         .alert("보안 팁", isPresented: $showingInfoAlert) {
             Button("확인", role: .cancel) {}
@@ -102,8 +102,7 @@ struct SecurityQuestionModal: View {
                         .foregroundColor(.white.opacity(0.6))
                         .font(.caption)
                 }
-                .padding()
-                .background(FieldBackground())
+                .inputFieldStyle()
             }
         }
     }
@@ -137,8 +136,7 @@ struct SecurityQuestionModal: View {
                         .foregroundColor(.green)
                 }
             }
-            .padding()
-            .background(FieldBackground())
+            .inputFieldStyle()
             .opacity(viewModel.signUpData.selectedSecurityQuestion.isEmpty ? 0.6 : 1.0)
         }
     }

@@ -6,7 +6,7 @@ struct FindEmailView: View {
     // MARK: - Properties
 
     @EnvironmentObject var authManager: AuthenticationManager
-    @Environment(\.dismiss) private var dismiss // 화면을 닫는 기능
+    @Environment(\.dismiss) private var dismiss // 👈 화면을 닫는 기능
     @StateObject private var themeManager = ThemeManager.shared
 
     // Purpose: 찾기 프로세스 단계 관리
@@ -30,8 +30,7 @@ struct FindEmailView: View {
     @State private var currentStep: FindStep = .phoneInput
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
-    @State private var foundEmails: [String] = []
-    @State private var selectedEmail: String? = nil
+    @State private var foundEmail: String? = nil  // 단일 이메일로 변경
     @State private var isLoading = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -74,7 +73,7 @@ struct FindEmailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("알림", isPresented: $showingAlert) {
             Button("확인") {
-                if currentStep == .showResults && !foundEmails.isEmpty {
+                if currentStep == .showResults && foundEmail != nil {
                     dismiss()
                 }
             }
@@ -141,7 +140,7 @@ struct FindEmailView: View {
                 .multilineTextAlignment(.center)
         }
     }
-
+    // 👈 과정에 맞는 텍스트 스위치문으로 제어
     private var headerTitle: String {
         switch currentStep {
         case .phoneInput:
@@ -149,7 +148,7 @@ struct FindEmailView: View {
         case .smsVerification:
             return "본인 확인"
         case .showResults:
-            return foundEmails.isEmpty ? "검색 결과" : "찾은 이메일"
+            return "찾은 이메일"
         }
     }
 
@@ -160,7 +159,7 @@ struct FindEmailView: View {
         case .smsVerification:
             return "SMS로 발송된 인증번호를 입력하세요"
         case .showResults:
-            return foundEmails.isEmpty ? "등록된 이메일이 없습니다" : "다음 이메일로 가입되어 있습니다"
+            return "다음 이메일로 가입되어 있습니다"
         }
     }
 
@@ -263,49 +262,27 @@ struct FindEmailView: View {
 
     private var resultsSection: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
-            if foundEmails.isEmpty {
-                // 이메일 없음
-                Image(systemName: "xmark.circle.fill")
-                    .font(DesignSystem.Typography.iconLarge)
-                    .foregroundColor(DesignSystem.Colors.error.opacity(DesignSystem.Opacity.semiMedium))
-
-                Text("등록된 이메일이 없습니다")
-                    .font(DesignSystem.Typography.headline)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-            } else {
+            if let email = foundEmail {
                 // 이메일 찾음
                 Image(systemName: "checkmark.circle.fill")
                     .font(DesignSystem.Typography.iconLarge)
                     .foregroundColor(DesignSystem.Colors.success)
 
-                VStack(spacing: DesignSystem.Spacing.sm + 2) {
-                    ForEach(foundEmails, id: \.self) { email in
-                        Button {
-                            selectedEmail = email
-                        } label: {
-                            HStack {
-                                // 체크 아이콘
-                                Image(systemName: selectedEmail == email ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(selectedEmail == email ? DesignSystem.Colors.success : DesignSystem.Colors.textTertiary)
-                                    .font(DesignSystem.Typography.iconSmall)
+                HStack {
+                    Image(systemName: "envelope.fill")
+                        .foregroundColor(DesignSystem.Colors.textTertiary)
 
-                                Image(systemName: "envelope.fill")
-                                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                    Text(email)
+                        .font(DesignSystem.Typography.headline)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
 
-                                Text(maskEmail(email))
-                                    .font(DesignSystem.Typography.headline)
-                                    .foregroundColor(DesignSystem.Colors.textPrimary)
-
-                                Spacer()
-                            }
-                            .padding(DesignSystem.Spacing.md)
-                            .background(
-                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                                    .fill(.ultraThinMaterial)
-                            )
-                        }
-                    }
+                    Spacer()
                 }
+                .padding(DesignSystem.Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                        .fill(.ultraThinMaterial)
+                )
             }
         }
     }
@@ -327,18 +304,9 @@ struct FindEmailView: View {
                         )
                 }
                 .disabled(!isNextButtonEnabled || isLoading)
-            } else if foundEmails.isEmpty {
-                // 회원가입 버튼 (이메일이 없을 때만)
-                NavigationLink {
-                    SignUpView()
-                } label: {
-                    Text("회원가입")
-                        .primaryButtonStyle(backgroundColor: DesignSystem.Colors.buttonSuccess)
-                }
-            } else {
+            } else if let email = foundEmail {
                 // 비밀번호 재설정 버튼 (이메일을 찾았을 때)
                 Button {
-                    guard let email = selectedEmail else { return }
                     Task {
                         await sendPasswordResetEmail(to: email)
                     }
@@ -347,11 +315,9 @@ struct FindEmailView: View {
                         Image(systemName: "key.fill")
                         Text("비밀번호 재설정 이메일 발송")
                     }
-                    .primaryButtonStyle(
-                        backgroundColor: selectedEmail != nil ? DesignSystem.Colors.buttonPrimary : DesignSystem.Colors.buttonDisabled
-                    )
+                    .primaryButtonStyle(backgroundColor: DesignSystem.Colors.buttonPrimary)
                 }
-                .disabled(selectedEmail == nil || isLoading)
+                .disabled(isLoading)
             }
 
             // 뒤로/다시 찾기 버튼
@@ -410,8 +376,7 @@ struct FindEmailView: View {
             currentStep = .phoneInput
             phoneNumber = ""
             verificationCode = ""
-            foundEmails = []
-            selectedEmail = nil
+            foundEmail = nil
         }
     }
 
@@ -505,7 +470,7 @@ struct FindEmailView: View {
         switch result {
         case .success:
             // 인증 성공 - 이메일 찾기
-            await findEmailsByPhone()
+            await findEmailByPhone()
 
             // 임시 전화번호 인증 계정 삭제
             do {
@@ -521,13 +486,18 @@ struct FindEmailView: View {
         isLoading = false
     }
 
-    private func findEmailsByPhone() async {
+    private func findEmailByPhone() async {
         // Firestore에서 전화번호로 이메일 찾기
         do {
-            let emails = try await userService.findEmailsByPhoneNumber(phoneNumber)
-            foundEmails = emails
-            currentStep = .showResults
-            smsCountdownTimer?.invalidate()
+            let email = try await userService.findEmailByPhoneNumber(phoneNumber)
+
+            if let email = email {
+                foundEmail = email
+                currentStep = .showResults
+                smsCountdownTimer?.invalidate()
+            } else {
+                showAlert("해당 전화번호로 가입된 계정이 없습니다")
+            }
         } catch {
             print("⚠️ 이메일 검색 실패: \(error.localizedDescription)")
             showAlert("이메일 검색 중 오류가 발생했습니다")

@@ -101,56 +101,51 @@ The project follows a modular MVVM architecture with clear separation of concern
 
 ### Firebase Services Used
 - **Authentication**: Email/password authentication with APNs integration for phone verification
-- **Firestore**: Two-collection design for security
-  - `users` collection: Complete user profiles (email stored in plaintext, phone numbers hashed)
-  - `publicdata` collection: Duplicate checking (document IDs are plaintext emails for efficient lookup)
+- **Firestore**: Single-collection design
+  - `users` collection: Complete user profiles (email and phone numbers in plaintext, security answers hashed)
 
 ### Data Flow Architecture
 1. **UI Validation**: Modals perform real-time validation with debouncing
-2. **Duplicate Checking**: Query `publicdata` collection by document ID (plaintext email)
-3. **User Registration**: `AuthenticationManager` → `UserService` → `SecurityService` (selective hashing) → Firestore
-4. **Security Layer**: Selective hashing in `UserService`
-   - Emails: Stored in plaintext (used as document IDs in `publicdata`)
-   - Phone numbers: SHA-512 hashed with salt/pepper
-   - Security answers: SHA-512 hashed with salt/pepper
+2. **Duplicate Checking**: Firebase Auth `fetchSignInMethods()` API (no Firestore query needed)
+3. **User Registration**: `AuthenticationManager` → `UserService` → `SecurityService` (security answer hashing) → Firestore
+4. **Security Layer**: Minimal hashing in `UserService`
+   - Emails: Stored in plaintext (Firebase Auth requirement)
+   - Phone numbers: Stored in plaintext (enables efficient Firestore queries)
+   - Security answers: SHA-512 hashed with pepper (comparison only, never retrieved)
 5. **State Management**: Reactive UI updates through `@Published` properties in `SignUpViewModel`
-6. **Email Recovery**: FindEmailView → hash phone number → query `users` collection → return plaintext email
+6. **Email Recovery**: FindEmailView → query `users` collection by phone number → return plaintext email
 
 ## Security Considerations
 
 ### Critical Security Constants
-- **Salt/Pepper**: Defined as `private static let` in `SecurityService.swift`
-- **⚠️ IMPORTANT**: Salt/pepper values are permanent after first deployment - cannot be changed without invalidating all existing user data
-- **Before First Deployment**: Ensure salt/pepper are strong random strings (128+ characters recommended)
+- **Pepper**: Defined as `private static let` in `SecurityService.swift`
+- **⚠️ IMPORTANT**: Pepper value is permanent after first deployment - cannot be changed without invalidating all existing user data
+- **Before First Deployment**: Ensure pepper is a strong random string (200 characters, alphanumeric mix)
 - `GoogleService-Info.plist` - Firebase API keys and configuration (gitignored)
 
 ### Data Security Model
 - **Emails**: Stored in plaintext (Firebase Auth requirement, used for login)
-- **Phone Numbers**: SHA-512 hashed with salt before storage
-- **Security Answers**: SHA-512 hashed with pepper before storage
+- **Phone Numbers**: Stored in plaintext (enables Firestore queries for email recovery)
+- **Security Answers**: SHA-512 hashed with pepper before storage (comparison only)
 - **Passwords**: Managed by Firebase Authentication (never stored locally)
 - **Password Validation**: Enforced client-side through `PasswordValidator`
+- **Access Control**: Firestore Security Rules restrict data access to authenticated users only
 
 ### SecurityService Architecture
-The unified `SecurityService` provides type-safe hashing:
+The `SecurityService` provides secure hashing for security answers only:
 ```swift
-enum DataType {
-    case securityAnswer  // Uses pepper
-    case phoneNumber     // Uses salt
-}
+// Hash security answer
+SecurityService.shared.hash(answer)
 
-// Hash any data type
-SecurityService.shared.hash(data, type: .phoneNumber)
-
-// Verify any data type
-SecurityService.shared.verify(input, hashedValue: stored, type: .securityAnswer)
+// Verify security answer
+SecurityService.shared.verify(inputAnswer, hashedValue: storedHash)
 ```
 
 Key features:
-- Single source of truth for all hashing operations
-- Automatic salt/pepper selection based on data type
-- Data normalization handled internally (lowercase for answers, remove hyphens for phone)
-- Private salt/pepper constants prevent external access
+- Single source of truth for security answer hashing
+- Data normalization handled internally (lowercase + whitespace trim)
+- Private pepper constant prevents external access
+- SHA-512 algorithm with pepper for strong one-way hashing
 
 ### APNs and Phone Authentication
 - APNs token registration required for Firebase Phone Authentication
@@ -197,18 +192,20 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
 
 ### Security Data Handling Rules
 - **Email Storage**: Store in plaintext (Firebase Auth requirement)
-  - Used as document IDs in `publicdata` collection for duplicate checking
+  - Duplicate checking via Firebase Auth `fetchSignInMethods()` API
   - Required for Firebase email/password authentication
-- **Phone Number Storage**: Always hash before storage
-  - Hash using `SecurityService.shared.hash(phoneNumber, type: .phoneNumber)`
-  - Used for email recovery by phone number lookup
+- **Phone Number Storage**: Store in plaintext (enables efficient queries)
+  - Used for email recovery: `whereField("phoneNumber", isEqualTo: phoneNumber)`
+  - Firestore Security Rules prevent unauthorized access
 - **Security Answers**: Always hash before storage
-  - Hash using `SecurityService.shared.hash(answer, type: .securityAnswer)`
+  - Hash using `SecurityService.shared.hash(answer)`
+  - Only for verification, never retrieved in plaintext
 - **Hashing Location**: All hashing occurs in `UserService` layer
   - Never hash in UI components or `AuthenticationManager`
-- **Duplicate Checking Pattern**: Query `publicdata` by document ID
-  - For emails: Use plaintext email as document ID
-- **Salt + Pepper**: Integrated into `SecurityService` as private constants, automatically selected by `DataType`
+- **Duplicate Checking**: Use `AuthenticationManager.checkEmailExists()`
+  - Firebase Auth manages email uniqueness internally
+  - No separate Firestore collection needed
+- **Pepper**: Integrated into `SecurityService` as private constant (200 characters)
 
 ### Code Style Conventions
 - **Purpose comments**: Every property and function has a "Purpose:" comment explaining its role
@@ -216,6 +213,10 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
 - **Step-by-step comments**: Complex functions break down logic with numbered steps
 - **Korean text in UI**: User-facing strings are in Korean, code/comments in English
 - **Modular structure**: One validator per input type, one modal per signup step
+- **Visual function separators**: Use decorative separators to clearly distinguish function implementations
+- **Developer emoji annotations**: 👈 emoji and following comments are written by developer
+  - **NEVER remove, modify, or add these annotations** - they are manual markers
+  - Example: `private var isListenerEnabled: Bool = true  // 👈 리스너는 Auth의 변화가 있을때만 자동감지함`
 
 Example function list format:
 ```swift
@@ -227,6 +228,22 @@ Example function list format:
  * - anotherMethod(): 간단한 설명
  */
 ```
+
+Example visual function separator:
+```swift
+// ═══════════════════════════════════════
+// PURPOSE: 함수의 주요 목적 설명
+// ═══════════════════════════════════════
+func functionName() {
+    // Implementation
+}
+```
+
+This separator pattern provides:
+- Clear visual boundaries between functions
+- Easy scanning when reviewing code
+- Consistent documentation style across the codebase
+- PURPOSE comment in all caps for better visibility
 
 ### Testing Authentication Flows
 - Test all signup steps in sequence (email → password → phone → security → completion)
@@ -244,9 +261,9 @@ Example function list format:
 - **Duplicate prevention**: `publicdata` collection with email as document ID
 - **Korean phone validation**: Support for 010/011/016/017/018/019 prefixes with formatting
 - **Email recovery with password reset**:
-  - Phone number-based email lookup via `UserService.findEmailsByPhoneNumber()` (supports multiple accounts)
+  - Phone number-based email lookup via `UserService.findEmailByPhoneNumber()` (single account per phone)
   - SMS verification through `PhoneVerificationService` (not for login, only for email recovery)
-  - Select found email and send password reset link without login
+  - Send password reset link without login
   - Firebase Auth `sendPasswordReset()` integration
 - **APNs integration**: Phone authentication support with silent push notification handling
 - **Alert-based error handling**: All authentication errors displayed via SwiftUI alerts (no inline error text)

@@ -35,15 +35,15 @@ struct ValidationFeedbackIcon: View {
             case .checking:
                 ProgressView()
                     .scaleEffect(0.8)
-                    .tint(Color.blue.opacity(0.6))
+                    .tint(DesignSystem.Colors.info)
 
             case .valid:
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(Color.green.opacity(0.7))
+                    .foregroundColor(DesignSystem.Colors.success)
 
             case .invalid:
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(Color.pink.opacity(0.7))
+                    .foregroundColor(DesignSystem.Colors.error)
             }
         }
         .frame(width: size, height: size)

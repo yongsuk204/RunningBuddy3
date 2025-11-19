@@ -11,10 +11,10 @@ struct ProgressIndicator: View {
 
     // MARK: - Styling Properties
 
-    private let completedColor = Color.white
-    private let currentColor = Color.white.opacity(0.9)
-    private let incompleteColor = Color.white.opacity(0.3)
-    private let lineColor = Color.white.opacity(0.5)
+    private let completedColor = DesignSystem.Colors.textPrimary
+    private let currentColor = DesignSystem.Colors.textPrimary.opacity(DesignSystem.Opacity.veryStrong)
+    private let incompleteColor = DesignSystem.Colors.textDisabled
+    private let lineColor = DesignSystem.Colors.textPrimary.opacity(DesignSystem.Opacity.semiMedium)
     private let circleSize: CGFloat = 16
     private let lineHeight: CGFloat = 2
 

@@ -107,9 +107,9 @@ class AuthenticationManager: ObservableObject {
     // MARK: - Authentication Methods
 
     // ═══════════════════════════════════════
-    // PURPOSE: 이메일/비밀번호 회원가입
+    // PURPOSE: 아이디/이메일/비밀번호 회원가입
     // ═══════════════════════════════════════
-    func signUp(email: String, password: String, phoneNumber: String, securityQuestion: String?, securityAnswer: String?) async {
+    func signUp(username: String, email: String, password: String, phoneNumber: String, securityQuestion: String?, securityAnswer: String?) async {
         // Step 1: 로딩 상태 시작
         await MainActor.run {
             isLoading = true
@@ -124,6 +124,7 @@ class AuthenticationManager: ObservableObject {
             do {
                 try await userService.saveUserData(
                     userId: result.user.uid,
+                    username: username,
                     email: email,
                     phoneNumber: phoneNumber,
                     securityQuestion: securityQuestion!,
@@ -136,12 +137,47 @@ class AuthenticationManager: ObservableObject {
                 return
             }
 
-            // Step 4: publicdata 컬렉션에 이메일 저장 (중복 가입 방지용)
+        } catch {
+            // Step 4: 에러 처리
+            await MainActor.run {
+                self.errorMessage = self.handleAuthError(error)
+            }
+        }
+
+        // Step 5: 로딩 상태 종료
+        await MainActor.run {
+            isLoading = false
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 아이디/비밀번호로 로그인 (개인 마이그레이션 포함)
+    // ═══════════════════════════════════════
+    func signIn(username: String, password: String) async {
+        // Step 1: 로딩 상태 시작
+        await MainActor.run {
+            isLoading = true
+            errorMessage = ""
+        }
+
+        do {
+            // Step 2: 아이디로 이메일 조회
+            guard let email = try await userService.getEmailByUsername(username) else {
+                await MainActor.run {
+                    self.errorMessage = "존재하지 않는 아이디입니다"
+                    self.isLoading = false
+                }
+                return
+            }
+
+            // Step 3: Firebase 로그인 시도 (이메일 사용)
+            let result = try await Auth.auth().signIn(withEmail: email, password: password)
+
+            // Step 4: 사용자 데이터 마이그레이션 (필드명 변경 등)
             do {
-                try await userService.saveEmailToPublicData(email)
+                try await userService.migrateUserData(userId: result.user.uid)
             } catch {
-                // publicdata 저장 실패는 치명적이지 않으므로 로그만 남기고 진행
-                print("PublicData 이메일 저장 실패: \(error.localizedDescription)")
+                print("⚠️ 데이터 마이그레이션 실패 (무시 가능): \(error.localizedDescription)")
             }
 
         } catch {
@@ -152,41 +188,6 @@ class AuthenticationManager: ObservableObject {
         }
 
         // Step 6: 로딩 상태 종료
-        await MainActor.run {
-            isLoading = false
-        }
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 이메일/비밀번호로 로그인 (개인 마이그레이션 포함)
-    // 마이그레이션은
-    // ═══════════════════════════════════════
-    func signIn(email: String, password: String) async {
-        // Step 1: 로딩 상태 시작
-        await MainActor.run {
-            isLoading = true
-            errorMessage = ""
-        }
-
-        do {
-            // Step 2: Firebase 로그인 시도
-            let result = try await Auth.auth().signIn(withEmail: email, password: password)
-
-            // Step 3: 사용자 데이터 마이그레이션 (필드명 변경 등)
-            do {
-                try await userService.migrateUserData(userId: result.user.uid)
-            } catch {
-                print("⚠️ 데이터 마이그레이션 실패 (무시 가능): \(error.localizedDescription)")
-            }
-
-        } catch {
-            // Step 4: 에러 처리
-            await MainActor.run {
-                self.errorMessage = self.handleAuthError(error)
-            }
-        }
-
-        // Step 5: 로딩 상태 종료
         await MainActor.run {
             isLoading = false
         }
@@ -248,8 +249,10 @@ class AuthenticationManager: ObservableObject {
         case AuthErrorCode.invalidEmail.rawValue:
             return "올바른 이메일을 입력해주세요."
 
-        case AuthErrorCode.emailAlreadyInUse.rawValue,
-             AuthErrorCode.weakPassword.rawValue:
+        case AuthErrorCode.emailAlreadyInUse.rawValue:
+            return "이미 사용 중인 이메일입니다."
+        
+        case AuthErrorCode.weakPassword.rawValue:
             return "입력한 정보를 다시 확인해주세요."
 
         case AuthErrorCode.wrongPassword.rawValue,

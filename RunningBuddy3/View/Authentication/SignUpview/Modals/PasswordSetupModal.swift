@@ -47,7 +47,7 @@ struct PasswordSetupModal: View {
             navigationSection
         }
         .padding(30)
-        .background(ModalBackground())
+        .modalBackgroundStyle()
         .padding(.horizontal, 20)
         .onAppear {
             focusedField = .password
@@ -108,8 +108,7 @@ struct PasswordSetupModal: View {
 
                 ValidationFeedbackIcon(status: viewModel.validationStates.passwordStatus)
             }
-            .padding()
-            .background(FieldBackground())
+            .inputFieldStyle()
         }
     }
 
@@ -133,8 +132,7 @@ struct PasswordSetupModal: View {
 
                 ValidationFeedbackIcon(status: viewModel.validationStates.confirmPasswordStatus)
             }
-            .padding()
-            .background(FieldBackground())
+            .inputFieldStyle()
         }
     }
 

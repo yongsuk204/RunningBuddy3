@@ -69,6 +69,13 @@ struct SignUpView: View {
     @ViewBuilder
     private var currentStepModal: some View {
         switch viewModel.currentStep {
+        case .username:
+            UsernameInputModal(viewModel: viewModel)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
+
         case .email:
             EmailInputModal(viewModel: viewModel)
                 .transition(.asymmetric(
@@ -110,6 +117,7 @@ struct SignUpView: View {
 
     private func stepTitle(for step: SignUpViewModel.SignUpStep) -> String {
         switch step {
+        case .username: return "아이디"
         case .email: return "이메일"
         case .password: return "비밀번호"
         case .phoneNumber: return "전화번호"

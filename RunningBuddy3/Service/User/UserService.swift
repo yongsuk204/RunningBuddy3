@@ -12,15 +12,18 @@ import FirebaseAuth
  * - updateUserData(): 사용자 데이터 업데이트 👈 추후 사용예정
  * - deleteUserData(): 사용자 데이터 삭제 👈 추후 사용예정
  *
- * Email Public Data Methods (중복 가입 방지용)
- * - checkEmailInPublicData(): publicdata 컬렉션에서 이메일 중복 체크
- * - saveEmailToPublicData(): publicdata 컬렉션에 이메일 저장
+ * Username Methods
+ * - checkUsernameExists(): 아이디 중복 체크
+ * - getEmailByUsername(): 아이디로 이메일 조회 (로그인용)
  *
  * Data Migration
- * - migrateUserData(): 로그인 시 사용자 데이터 마이그레이션 (필드명 변경 등)
+ * - migrateUserData(): 로그인 시 사용자 데이터 마이그레이션 (필드명 변경 등) 👈 배포전까지는 아마 필요없을거임
+ *
+ * Duplicate Check Methods
+ * - checkPhoneNumberExists(): 전화번호 중복 체크 (회원가입용)
  *
  * Email Recovery Methods
- * - findEmailsByPhoneNumber(): 전화번호로 사용자 이메일 찾기 (복수 계정 지원)
+ * - findEmailByPhoneNumber(): 전화번호로 사용자 이메일 찾기 (단일 계정)
  */
 class UserService {
 
@@ -37,9 +40,8 @@ class UserService {
     // Purpose: SecurityService 인스턴스
     private let securityService = SecurityService.shared
 
-    // Purpose: 컬렉션 이름들
+    // Purpose: 컬렉션 이름
     private let usersCollection = "users"
-    private let publicDataCollection = "publicdata"
 
     // MARK: - Initialization
 
@@ -49,20 +51,18 @@ class UserService {
     // MARK: - User Data Management
 
     // ═══════════════════════════════════════
-    // PURPOSE: 회원가입 시 사용자 정보를 Firestore에 저장 👈
+    // PURPOSE: 회원가입 시 사용자 정보를 Firestore에 저장
     // ═══════════════════════════════════════
-    func saveUserData(userId: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String) async throws {
-        // Step 1: 전화번호 해시화 (이메일은 원본 저장)
-        let hashedPhoneNumber = securityService.hash(phoneNumber, type: .phoneNumber)
+    func saveUserData(userId: String, username: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String) async throws {
+        // Step 1: 보안질문 답변만 해시화
+        let hashedAnswer = securityService.hash(securityAnswer)
 
-        // Step 2: 보안질문 답변 해시화
-        let hashedAnswer = securityService.hash(securityAnswer, type: .securityAnswer)
-
-        // Step 3: UserData 객체 생성 👈 UserData() init!!
+        // Step 2: UserData 객체 생성
         let userData = UserData(
             userId: userId,
-            email: email,  // 원본 이메일 저장
-            phoneNumber: hashedPhoneNumber,
+            username: username,
+            email: email,
+            phoneNumber: phoneNumber,
             securityQuestion: securityQuestion,
             securityAnswer: hashedAnswer
         )
@@ -117,7 +117,7 @@ class UserService {
         }
 
         // Step 2: 보안질문 답변 검증
-        let isValid = securityService.verify(inputAnswer, hashedValue: userData.securityAnswer, type: .securityAnswer)
+        let isValid = securityService.verify(inputAnswer, hashedValue: userData.securityAnswer)
 
         print("UserService: 보안질문 답변 검증 결과 - \(isValid)")
         return isValid
@@ -138,22 +138,12 @@ class UserService {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 사용자 데이터 삭제 (users 컬렉션 + publicdata 컬렉션)
+    // PURPOSE: 사용자 데이터 삭제 (users 컬렉션)
     // STATUS: 준비 완료 (미사용) - 회원 탈퇴, 계정 삭제 기능에서 사용 예정
     // ═══════════════════════════════════════
     func deleteUserData(userId: String) async throws {
         do {
-            // Step 1: 사용자 데이터 조회 (이메일 정보 필요)
-            guard let userData = try await getUserData(userId: userId) else {
-                throw UserServiceError.userNotFound
-            }
-
-            // Step 2: publicdata 컬렉션에서 이메일 문서 삭제 (원본 이메일이 문서 ID)
-            let documentRef = firestore.collection(publicDataCollection).document(userData.email)
-            try await documentRef.delete()
-            print("UserService: PublicData 이메일 삭제 성공")
-
-            // Step 3: users 컬렉션에서 사용자 문서 삭제
+            // users 컬렉션에서 사용자 문서 삭제
             try await firestore.collection(usersCollection).document(userId).delete()
             print("UserService: 사용자 데이터 삭제 성공 - \(userId)")
 
@@ -163,50 +153,55 @@ class UserService {
         }
     }
 
-    // MARK: - Email Public Data Methods (중복 가입 방지용)
+
+    // MARK: - Username Methods
 
     // ═══════════════════════════════════════
-    // PURPOSE: publicdata 컬렉션에서 이메일 중복 체크 (문서 ID로 조회)
+    // PURPOSE: 아이디 중복 체크
     // ═══════════════════════════════════════
-    func checkEmailInPublicData(_ email: String) async throws -> Bool {
+    func checkUsernameExists(_ username: String) async throws -> Bool {
         do {
-            // Step 1: 원본 이메일을 문서 ID로 사용하여 문서 존재 여부 확인
-            let documentRef = firestore.collection(publicDataCollection).document(email)
-            let document = try await documentRef.getDocument()
+            let querySnapshot = try await firestore
+                .collection(usersCollection)
+                .whereField("username", isEqualTo: username)
+                .getDocuments()
 
-            // Step 2: 문서가 존재하면 true (중복), 없으면 false
-            if document.exists {
-                print("UserService: PublicData 이메일 중복 확인 - 이미 존재하는 이메일")
-                return true
-            } else {
-                print("UserService: PublicData 이메일 중복 확인 - 사용 가능한 이메일")
-                return false
-            }
+            let exists = !querySnapshot.documents.isEmpty
+            print("UserService: 아이디 중복 체크 - \(exists ? "이미 존재" : "사용 가능")")
+            return exists
+
         } catch {
-            print("UserService: PublicData 이메일 중복 확인 실패 - \(error.localizedDescription)")
+            print("UserService: 아이디 중복 체크 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: publicdata 컬렉션에 이메일을 문서 ID로 저장
+    // PURPOSE: 아이디로 이메일 조회 (로그인용)
     // ═══════════════════════════════════════
-    func saveEmailToPublicData(_ email: String) async throws {
+    func getEmailByUsername(_ username: String) async throws -> String? {
         do {
-            // Step 1: 원본 이메일을 문서 ID로 사용하여 publicdata 컬렉션에 저장
-            let documentRef = firestore.collection(publicDataCollection).document(email)
+            let querySnapshot = try await firestore
+                .collection(usersCollection)
+                .whereField("username", isEqualTo: username)
+                .getDocuments()
 
-            let data: [String: Any] = [
-                "createdAt": Timestamp(date: Date())
-            ]
+            guard let document = querySnapshot.documents.first else {
+                print("UserService: 아이디를 찾을 수 없음 - \(username)")
+                return nil
+            }
 
-            // Step 2: 문서 저장
-            try await documentRef.setData(data)
-            print("UserService: PublicData 이메일 저장 성공 - 문서 ID: \(email)")
+            guard let userData = UserData.fromDictionary(document.data()) else {
+                print("UserService: 데이터 변환 실패 - \(username)")
+                return nil
+            }
+
+            print("UserService: 아이디로 이메일 조회 성공 - \(username)")
+            return userData.email
 
         } catch {
-            print("UserService: PublicData 이메일 저장 실패 - \(error.localizedDescription)")
-            throw UserServiceError.saveFailed(error.localizedDescription)
+            print("UserService: 아이디로 이메일 조회 실패 - \(error.localizedDescription)")
+            throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }
 
@@ -241,30 +236,55 @@ class UserService {
         }
     }
 
+    // MARK: - Duplicate Check Methods
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 전화번호 중복 체크
+    // NOTE: 회원가입 시 사용, 한 전화번호당 하나의 계정만 허용
+    // ═══════════════════════════════════════
+    func checkPhoneNumberExists(_ phoneNumber: String) async throws -> Bool {
+        do {
+            let querySnapshot = try await firestore
+                .collection(usersCollection)
+                .whereField("phoneNumber", isEqualTo: phoneNumber)
+                .limit(to: 1)
+                .getDocuments()
+
+            let exists = !querySnapshot.documents.isEmpty
+            print("UserService: 전화번호 중복 체크 - \(exists ? "이미 존재" : "사용 가능")")
+            return exists
+
+        } catch {
+            print("UserService: 전화번호 중복 체크 실패 - \(error.localizedDescription)")
+            throw UserServiceError.searchFailed(error.localizedDescription)
+        }
+    }
+
     // MARK: - Email Recovery Methods
 
     // ═══════════════════════════════════════
-    // PURPOSE: 전화번호로 사용자 이메일 찾기 (복수 계정 지원)
+    // PURPOSE: 전화번호로 사용자 이메일 찾기 (단일 계정)
+    // NOTE: 전화번호는 원본으로 저장되어 Firestore 쿼리 가능
+    // NOTE: 한 전화번호당 하나의 계정만 가능하므로 단일 이메일 반환
     // ═══════════════════════════════════════
-    func findEmailsByPhoneNumber(_ phoneNumber: String) async throws -> [String] {
+    func findEmailByPhoneNumber(_ phoneNumber: String) async throws -> String? {
         do {
-            // Step 1: 전화번호 해시화
-            let hashedPhoneNumber = securityService.hash(phoneNumber, type: .phoneNumber)
+            // Step 1: Firestore 쿼리로 전화번호 일치하는 사용자 찾기
+            let querySnapshot = try await firestore
+                .collection(usersCollection)
+                .whereField("phoneNumber", isEqualTo: phoneNumber)
+                .limit(to: 1)  // 한 전화번호당 하나의 계정만 가능
+                .getDocuments()
 
-            // Step 2: users 컬렉션에서 해당 전화번호를 가진 모든 사용자 찾기
-            let querySnapshot = try await firestore.collection(usersCollection).getDocuments()
-
-            var foundEmails: [String] = []
-
-            for document in querySnapshot.documents {
-                if let userData = UserData.fromDictionary(document.data()),
-                   userData.phoneNumber == hashedPhoneNumber {
-                    foundEmails.append(userData.email)
-                }
+            // Step 2: 첫 번째 문서에서 이메일 추출
+            guard let document = querySnapshot.documents.first,
+                  let userData = UserData.fromDictionary(document.data()) else {
+                print("UserService: 해당 전화번호로 가입된 계정 없음")
+                return nil
             }
 
-            print("UserService: 전화번호로 \(foundEmails.count)개의 이메일 찾기 완료")
-            return foundEmails
+            print("UserService: 전화번호로 이메일 찾기 완료 - \(userData.email)")
+            return userData.email
 
         } catch {
             print("UserService: 전화번호로 이메일 찾기 실패 - \(error.localizedDescription)")
