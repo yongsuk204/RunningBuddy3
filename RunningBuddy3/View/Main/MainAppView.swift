@@ -1,5 +1,4 @@
 import SwiftUI
-import FirebaseAuth
 
 // 인증된 사용자의 메인 화면 - 간단한 환영 화면
 struct MainAppView: View {

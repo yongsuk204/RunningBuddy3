@@ -1,5 +1,4 @@
 import SwiftUI
-import FirebaseAuth
 
 // Purpose: 순차적 모달 기반 회원가입 메인 컨테이너 뷰
 struct SignUpView: View {
@@ -8,23 +7,14 @@ struct SignUpView: View {
 
     @EnvironmentObject var authManager: AuthenticationManager
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var themeManager = ThemeManager.shared
     @StateObject private var viewModel = SignUpViewModel()
 
     // MARK: - Body
 
     var body: some View {
         ZStack {
-            // 배경 그라데이션 - Theme applied
-            LinearGradient(
-                colors: [
-                    themeManager.gradientStart.opacity(DesignSystem.Opacity.semiMedium),
-                    themeManager.gradientEnd.opacity(DesignSystem.Opacity.semiMedium)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            Color.clear
+                .appGradientBackground()
 
             mainContent
         }

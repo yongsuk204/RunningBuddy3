@@ -1,6 +1,4 @@
 import SwiftUI
-import Foundation
-import Combine
 
 // Purpose: 이메일 입력 및 유효성 검사를 위한 모달
 // MARK: - 함수 목록
@@ -8,10 +6,13 @@ import Combine
  * UI Components
  * - headerSection: 헤더 영역 (제목 및 정보 버튼)
  * - emailInputSection: 이메일 입력 필드
- * - navigationSection: 다음/뒤로가기 버튼
+ * - navigationSection: 이전/다음 버튼
  *
  * Validation Methods
  * - handleEmailChange(): 이메일 변경 시 실시간 형식 검증 (중복 체크는 Firebase Auth가 자동 처리)
+ *
+ * Computed Properties
+ * - canProceedToNext: 다음 단계 진행 가능 여부 확인
  */
 struct EmailInputModal: View {
 
@@ -77,11 +78,11 @@ struct EmailInputModal: View {
                 .foregroundColor(.white)
                 .padding(.top, 10)
         }
-        .alert("이메일 입력", isPresented: $showingEmailInfo) {
-            Button("확인") { }
-        } message: {
-            Text("\n• 허용된 이메일 서비스\ngmail, naver, daum, nate, yahoo\n• 예시) user@gmail.com")
-        }
+        .infoAlert(
+            title: "이메일 입력",
+            isPresented: $showingEmailInfo,
+            message: "\n• 허용된 이메일 서비스\ngmail, naver, daum, nate, yahoo\n• 예시) user@gmail.com"
+        )
     }
 
     // MARK: - Email Input Section

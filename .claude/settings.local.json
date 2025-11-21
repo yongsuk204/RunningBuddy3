@@ -4,7 +4,8 @@
       "Bash(rm:*)",
       "Bash(while read file)",
       "Bash(do echo \"=== $file ===\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []

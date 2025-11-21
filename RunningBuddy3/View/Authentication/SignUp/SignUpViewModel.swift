@@ -1,6 +1,4 @@
 import SwiftUI
-import Foundation
-import Combine
 
 // Purpose: 순차적 모달 기반 회원가입 과정의 상태 관리 👈 모달순서가 어디인지, 모달별로 입력한 정보가뭔지 등등 상태관리
 // MARK: - 함수 목록
@@ -115,17 +113,4 @@ class SignUpViewModel: ObservableObject {
         }
     }
 
-
-
-    // MARK: - Data Reset
-    // TODO: 적절한 시기에 초기화함수 호출해야함 -> 지금은 아직 사용하고있지 않음
-
-    // Purpose: 모든 데이터 초기화
-    func resetAllData() {
-        currentStep = .email
-        signUpData = SignUpData()
-        validationStates = ValidationStates()
-        errorMessage = ""
-        isLoading = false
-    }
 }

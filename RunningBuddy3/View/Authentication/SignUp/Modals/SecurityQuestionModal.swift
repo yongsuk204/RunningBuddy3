@@ -1,8 +1,17 @@
 import SwiftUI
-import Foundation
-import Combine
 
 // Purpose: 보안 질문 선택 및 답변 입력을 위한 모달
+// MARK: - 함수 목록
+/*
+ * UI Components
+ * - headerSection: 헤더 영역 (제목 및 정보 버튼)
+ * - securityQuestionSection: 보안 질문 선택 메뉴
+ * - securityAnswerSection: 보안 답변 입력 필드
+ * - navigationSection: 이전/다음 버튼
+ *
+ * Computed Properties
+ * - canProceedToNext: 다음 단계 진행 가능 여부 확인
+ */
 struct SecurityQuestionModal: View {
 
     // MARK: - Properties
@@ -33,11 +42,11 @@ struct SecurityQuestionModal: View {
         .padding(30)
         .modalBackgroundStyle()
         .padding(.horizontal, 20)
-        .alert("보안 팁", isPresented: $showingInfoAlert) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text("• 다른 사람이 쉽게 추측할 수 없는 답변을 입력하세요\n• 답변은 정확히 기억할 수 있는 내용으로 설정하세요\n• 대소문자를 구분하여 정확히 입력해주세요")
-        }
+        .infoAlert(
+            title: "보안 팁",
+            isPresented: $showingInfoAlert,
+            message: "• 다른 사람이 쉽게 추측할 수 없는 답변을 입력하세요\n• 답변은 정확히 기억할 수 있는 내용으로 설정하세요\n• 대소문자를 구분하여 정확히 입력해주세요"
+        )
     }
 
     // MARK: - Header Section

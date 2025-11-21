@@ -1,5 +1,4 @@
 import SwiftUI
-import FirebaseAuth
 
 // Purpose: 사용자 로그인을 위한 Glass UI 디자인의 로그인 화면
 struct LoginView: View {
@@ -7,7 +6,6 @@ struct LoginView: View {
     // MARK: - Properties
 
     @EnvironmentObject var authManager: AuthenticationManager
-    @StateObject private var themeManager = ThemeManager.shared
 
     // State Properties
     @State private var username = ""
@@ -22,16 +20,8 @@ struct LoginView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // 배경 그라데이션 - Theme applied
-                LinearGradient(
-                    colors: [
-                        themeManager.gradientStart.opacity(DesignSystem.Opacity.semiMedium),
-                        themeManager.gradientEnd.opacity(DesignSystem.Opacity.semiMedium)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color.clear
+                    .appGradientBackground()
 
                 mainContent
             }
@@ -41,11 +31,7 @@ struct LoginView: View {
             .navigationDestination(isPresented: $showingFindEmail) {
                 FindEmailView()
             }
-            .alert("알림", isPresented: $showingAlert) {
-                Button("확인") { }
-            } message: {
-                Text(alertMessage)
-            }
+            .standardAlert(isPresented: $showingAlert, message: alertMessage)
             .overlay {
                 if authManager.isLoading {
                     ProgressView()

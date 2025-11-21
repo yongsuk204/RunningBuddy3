@@ -1,11 +1,19 @@
 import SwiftUI
 
-// Purpose: 아이디(username) 입력 모달 - 회원가입 첫 번째 단계
+// Purpose: 사용자명 입력 및 유효성 검사를 위한 모달
 // MARK: - 함수 목록
 /*
- * Validation
- * - validateUsernameFormat(): 아이디 형식 실시간 검증
- * - performDetailedValidation(): API 중복 검사 포함 상세 검증
+ * UI Components
+ * - headerSection: 헤더 영역 (제목)
+ * - usernameInputSection: 사용자명 입력 필드
+ * - navigationSection: 이전/다음 버튼
+ *
+ * Validation Methods
+ * - validateUsernameFormat(): 사용자명 형식 실시간 검증 (디바운싱 포함)
+ * - performDuplicateCheck(): 사용자명 중복 검사 (Firestore 조회)
+ *
+ * Helper Methods
+ * - getValidationErrorMessage(): 검증 실패 시 에러 메시지 반환
  */
 struct UsernameInputModal: View {
 

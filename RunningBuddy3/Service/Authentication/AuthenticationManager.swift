@@ -8,12 +8,12 @@ import Combine
 /*
  * Authentication State
  * - setupAuthStateListener(): Firebase 인증 상태 변경 감지 설정
- * - disableListener(): 리스너 일시 비활성화 (이메일 찾기 SMS 인증용)
+ * - disableListener(): 리스너 일시 비활성화 (아이디 찾기 SMS 인증용)
  * - enableListener(): 리스너 다시 활성화
  *
  * Authentication Methods
- * - signUp(): 이메일/비밀번호 회원가입
- * - signIn(): 이메일/비밀번호 로그인 (마이그레이션 포함)
+ * - signUp(): 아이디/비밀번호 회원가입
+ * - signIn(): 아이디/비밀번호 로그인 (마이그레이션 포함)
  * - signOut(): 로그아웃 처리
  * - deleteCurrentAccount(): 현재 계정 삭제
  * - sendPasswordReset(): 비밀번호 재설정 이메일 발송
@@ -76,7 +76,7 @@ class AuthenticationManager: ObservableObject {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 리스너 일시 비활성화 (이메일 찾기 SMS 인증용)
+    // PURPOSE: 리스너 일시 비활성화 (아이디 찾기 SMS 인증용)
     // ═══════════════════════════════════════
     func disableListener() {
         isListenerEnabled = false

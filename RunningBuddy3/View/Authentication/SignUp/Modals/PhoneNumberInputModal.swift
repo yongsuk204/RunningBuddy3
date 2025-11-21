@@ -1,6 +1,4 @@
 import SwiftUI
-import Foundation
-import Combine
 
 // Purpose: 전화번호 입력 및 유효성 검사를 위한 모달
 // MARK: - 함수 목록
@@ -11,7 +9,11 @@ import Combine
  * - navigationSection: 이전/다음 버튼
  *
  * Validation Methods
- * - handlePhoneNumberChange(): 전화번호 변경 시 실시간 포맷팅, 검증 및 중복 체크
+ * - handlePhoneNumberChange(): 전화번호 변경 시 실시간 포맷팅 및 검증 (디바운싱 포함)
+ * - performDuplicateCheck(): 전화번호 중복 검사 (Firestore 조회)
+ *
+ * Computed Properties
+ * - canProceedToNext: 다음 단계 진행 가능 여부 확인
  */
 struct PhoneNumberInputModal: View {
 
@@ -27,8 +29,8 @@ struct PhoneNumberInputModal: View {
     // Purpose: 전화번호 정보 도움말 알림창 표시 여부 (내부 UI 상태)
     @State private var showingPhoneInfo = false
 
-    // Purpose: 전화번호 입력 디바운싱을 위한 타이머 (0.5초 지연 후 검증 실행, 내부 제어용)
-    @State private var phoneCheckTimer: Timer?
+    // Purpose: 전화번호 입력 디바운싱 헬퍼 (1초 지연 후 검증 실행)
+    @StateObject private var debouncer = DebouncedValidator()
 
     // Purpose: 전화번호 입력 필드의 포커스 상태 관리 (내부 UI 제어, 키보드 표시/숨김)
     @FocusState private var focusedField: Field?
@@ -53,9 +55,6 @@ struct PhoneNumberInputModal: View {
         .padding(.horizontal, 20)
         .onAppear {
             focusedField = .phoneNumber
-        }
-        .onDisappear {
-            phoneCheckTimer?.invalidate()
         }
     }
 
@@ -84,11 +83,11 @@ struct PhoneNumberInputModal: View {
                 .foregroundColor(.white)
                 .padding(.top, 10)
         }
-        .alert("전화번호 입력", isPresented: $showingPhoneInfo) {
-            Button("확인") { }
-        } message: {
-            Text("\n• 전화번호는 본인 확인 및 보안을 위해 사용됩니다\n• 010, 011, 016, 017, 018, 019로 시작하는 번호만 가능합니다\n• 자동으로 하이픈(-)이 추가됩니다\n• 예시) 010-1234-5678")
-        }
+        .infoAlert(
+            title: "전화번호 입력",
+            isPresented: $showingPhoneInfo,
+            message: "\n• 전화번호는 본인 확인 및 보안을 위해 사용됩니다\n• 010, 011, 016, 017, 018, 019로 시작하는 번호만 가능합니다\n• 자동으로 하이픈(-)이 추가됩니다\n• 예시) 010-1234-5678"
+        )
     }
 
     // MARK: - Phone Number Input Section
@@ -148,9 +147,6 @@ struct PhoneNumberInputModal: View {
 
     // Purpose: 전화번호 변경 시 포맷팅 및 유효성 검사 (디바운싱 포함)
     private func handlePhoneNumberChange(_ newNumber: String) {
-        // 이전 타이머 취소
-        phoneCheckTimer?.invalidate()
-
         // Step 1: 자동 포맷팅 적용
         let formattedNumber = phoneNumberValidator.formatPhoneNumber(newNumber)
         if formattedNumber != newNumber {
@@ -170,7 +166,7 @@ struct PhoneNumberInputModal: View {
         viewModel.validationStates.phoneNumberStatus = .none
 
         // Step 4: 1초 디바운싱 후 중복 검사
-        phoneCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
+        debouncer.debounce(interval: 1.0) {
             Task { @MainActor in
                 await performDuplicateCheck(formattedNumber)
             }

@@ -1,8 +1,6 @@
 import SwiftUI
-import Foundation
-import Combine
 
-// Purpose: 비밀번호 입력과 확인을 통합한 모달
+// Purpose: 비밀번호 입력 및 확인을 위한 모달
 // MARK: - 함수 목록
 /*
  * UI Components
@@ -14,6 +12,8 @@ import Combine
  * Validation Methods
  * - handlePasswordChange(): 비밀번호 변경 시 정책 검증 및 상태 업데이트
  * - handleConfirmPasswordChange(): 비밀번호 확인 변경 시 일치 여부 검증
+ *
+ * Computed Properties
  * - canProceedToNext: 다음 단계 진행 가능 여부 확인
  */
 struct PasswordSetupModal: View {
@@ -78,11 +78,11 @@ struct PasswordSetupModal: View {
                 .fontWeight(.bold)
                 .foregroundColor(.white)
         }
-        .alert("비밀번호 설정", isPresented: $showingPasswordInfo) {
-            Button("확인") { }
-        } message: {
-            Text("\n• 비밀번호는 10자 이상 16자 이하로 설정해주세요\n• 영문 대소문자, 숫자, 특수문자를 포함해야 합니다\n• 예시) qwer1234!@#$")
-        }
+        .infoAlert(
+            title: "비밀번호 설정",
+            isPresented: $showingPasswordInfo,
+            message: "\n• 비밀번호는 10자 이상 16자 이하로 설정해주세요\n• 영문 대소문자, 숫자, 특수문자를 포함해야 합니다\n• 예시) qwer1234!@#$"
+        )
     }
 
     // MARK: - Password Input Section

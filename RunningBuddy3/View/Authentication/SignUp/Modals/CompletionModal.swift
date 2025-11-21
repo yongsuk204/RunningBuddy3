@@ -1,8 +1,19 @@
 import SwiftUI
-import Foundation
-import Combine
 
 // Purpose: 회원가입 정보 확인 및 최종 제출을 위한 모달
+// MARK: - 함수 목록
+/*
+ * UI Components
+ * - headerSection: 헤더 영역 (제목 및 설명)
+ * - summarySection: 입력 정보 요약 표시
+ * - confirmationSection: 약관 동의 및 안내 메시지
+ * - navigationSection: 이전/회원가입 완료 버튼
+ * - loadingOverlay: 회원가입 처리 중 로딩 화면
+ *
+ * Helper Methods
+ * - summaryItem(): 요약 정보 항목 생성
+ * - performSignUp(): 회원가입 수행
+ */
 struct CompletionModal: View {
     
     // MARK: - Properties
@@ -27,14 +38,10 @@ struct CompletionModal: View {
         .padding(30)
         .modalBackgroundStyle()
         .padding(.horizontal, 20)
-        .alert("알림", isPresented: $showingAlert) {
-            Button("확인") {
-                if authManager.currentUser != nil {
-                    dismiss()
-                }
+        .standardAlert(isPresented: $showingAlert, message: alertMessage) {
+            if authManager.currentUser != nil {
+                dismiss()
             }
-        } message: {
-            Text(alertMessage)
         }
         .onChange(of: authManager.currentUser) { _, currentUser in
             if currentUser != nil {
@@ -160,33 +167,18 @@ struct CompletionModal: View {
     // MARK: - Navigation Section
     
     private var navigationSection: some View {
-        VStack(spacing: 12) {
-            // Error message
-            if !authManager.errorMessage.isEmpty {
-                HStack {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.red)
-                    Text(authManager.errorMessage)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                    Spacer()
-                }
+        NavigationButtons(
+            canGoBack: true,
+            canGoNext: true,
+            nextButtonTitle: "회원가입 완료",
+            isNextDisabled: authManager.isLoading,
+            onBack: {
+                viewModel.goToPreviousStep()
+            },
+            onNext: {
+                performSignUp()
             }
-            
-            // Navigation buttons
-            NavigationButtons(
-                canGoBack: true,
-                canGoNext: true,
-                nextButtonTitle: "회원가입 완료",
-                isNextDisabled: authManager.isLoading,
-                onBack: {
-                    viewModel.goToPreviousStep()
-                },
-                onNext: {
-                    performSignUp()
-                }
-            )
-        }
+        )
     }
     
     // MARK: - Loading Overlay

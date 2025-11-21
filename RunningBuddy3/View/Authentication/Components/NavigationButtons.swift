@@ -59,38 +59,3 @@ struct NavigationButtons: View {
         .padding(.horizontal)
     }
 }
-
-// MARK: - Preview
-
-#Preview {
-    ZStack {
-        LinearGradient(
-            colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
-
-        VStack(spacing: 20) {
-            NavigationButtons(
-                nextButtonTitle: "다음",
-                onBack: {},
-                onNext: {}
-            )
-
-            NavigationButtons(
-                canGoBack: false,
-                nextButtonTitle: "시작",
-                onNext: {}
-            )
-
-            NavigationButtons(
-                nextButtonTitle: "완료",
-                isNextDisabled: true,
-                onBack: {},
-                onNext: {}
-            )
-        }
-        .padding()
-    }
-}

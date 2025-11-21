@@ -22,8 +22,8 @@ import FirebaseAuth
  * Duplicate Check Methods
  * - checkPhoneNumberExists(): 전화번호 중복 체크 (회원가입용)
  *
- * Email Recovery Methods
- * - findEmailByPhoneNumber(): 전화번호로 사용자 이메일 찾기 (단일 계정)
+ * ID Recovery Methods
+ * - findEmailByPhoneNumber(): 전화번호로 사용자 아이디 찾기 (단일 계정)
  */
 class UserService {
 
@@ -260,12 +260,12 @@ class UserService {
         }
     }
 
-    // MARK: - Email Recovery Methods
+    // MARK: - ID Recovery Methods
 
     // ═══════════════════════════════════════
-    // PURPOSE: 전화번호로 사용자 이메일 찾기 (단일 계정)
+    // PURPOSE: 전화번호로 사용자 아이디 찾기 (단일 계정)
     // NOTE: 전화번호는 원본으로 저장되어 Firestore 쿼리 가능
-    // NOTE: 한 전화번호당 하나의 계정만 가능하므로 단일 이메일 반환
+    // NOTE: 한 전화번호당 하나의 계정만 가능하므로 단일 아이디 반환
     // ═══════════════════════════════════════
     func findEmailByPhoneNumber(_ phoneNumber: String) async throws -> String? {
         do {
@@ -276,18 +276,18 @@ class UserService {
                 .limit(to: 1)  // 한 전화번호당 하나의 계정만 가능
                 .getDocuments()
 
-            // Step 2: 첫 번째 문서에서 이메일 추출
+            // Step 2: 첫 번째 문서에서 아이디 추출
             guard let document = querySnapshot.documents.first,
                   let userData = UserData.fromDictionary(document.data()) else {
                 print("UserService: 해당 전화번호로 가입된 계정 없음")
                 return nil
             }
 
-            print("UserService: 전화번호로 이메일 찾기 완료 - \(userData.email)")
+            print("UserService: 전화번호로 아이디 찾기 완료 - \(userData.email)")
             return userData.email
 
         } catch {
-            print("UserService: 전화번호로 이메일 찾기 실패 - \(error.localizedDescription)")
+            print("UserService: 전화번호로 아이디 찾기 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }

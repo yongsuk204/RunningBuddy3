@@ -30,13 +30,13 @@ The project follows a modular MVVM architecture with clear separation of concern
   - `Authentication/` - Modal-based authentication system
     - `SignUpview/` - Sequential signup flow with individual modals
     - `LoginView/` - Login interface
-    - `FindEmailView/` - Email recovery by phone number
+    - `FindEmailView/` - ID recovery by phone number
   - `Main/` - Main app navigation (MainAppView.swift)
 
 - **Service/** - Business logic and external service integration
   - `Authentication/AuthenticationManager.swift` - Firebase Auth wrapper with state management
-  - `Authentication/PhoneVerificationService.swift` - SMS verification for email recovery (not login)
-  - `User/UserService.swift` - Firestore user data management, hashing coordination, and email recovery
+  - `Authentication/PhoneVerificationService.swift` - SMS verification for ID recovery (not login)
+  - `User/UserService.swift` - Firestore user data management, hashing coordination, and ID recovery
   - `Config/` - Validation and security services
     - `SecurityService.swift` - Unified hashing service with type-safe DataType enum (salt/pepper integrated)
     - `EmailValidator.swift` - RFC-compliant email validation
@@ -113,7 +113,7 @@ The project follows a modular MVVM architecture with clear separation of concern
    - Phone numbers: Stored in plaintext (enables efficient Firestore queries)
    - Security answers: SHA-512 hashed with pepper (comparison only, never retrieved)
 5. **State Management**: Reactive UI updates through `@Published` properties in `SignUpViewModel`
-6. **Email Recovery**: FindEmailView → query `users` collection by phone number → return plaintext email
+6. **ID Recovery**: FindEmailView → query `users` collection by phone number → return plaintext ID (email)
 
 ## Security Considerations
 
@@ -124,8 +124,8 @@ The project follows a modular MVVM architecture with clear separation of concern
 - `GoogleService-Info.plist` - Firebase API keys and configuration (gitignored)
 
 ### Data Security Model
-- **Emails**: Stored in plaintext (Firebase Auth requirement, used for login)
-- **Phone Numbers**: Stored in plaintext (enables Firestore queries for email recovery)
+- **Emails**: Stored in plaintext (Firebase Auth requirement, used as ID for login)
+- **Phone Numbers**: Stored in plaintext (enables Firestore queries for ID recovery)
 - **Security Answers**: SHA-512 hashed with pepper before storage (comparison only)
 - **Passwords**: Managed by Firebase Authentication (never stored locally)
 - **Password Validation**: Enforced client-side through `PasswordValidator`
@@ -195,7 +195,7 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
   - Duplicate checking via Firebase Auth `fetchSignInMethods()` API
   - Required for Firebase email/password authentication
 - **Phone Number Storage**: Store in plaintext (enables efficient queries)
-  - Used for email recovery: `whereField("phoneNumber", isEqualTo: phoneNumber)`
+  - Used for ID recovery: `whereField("phoneNumber", isEqualTo: phoneNumber)`
   - Firestore Security Rules prevent unauthorized access
 - **Security Answers**: Always hash before storage
   - Hash using `SecurityService.shared.hash(answer)`
@@ -260,9 +260,9 @@ This separator pattern provides:
 - **Security architecture**: SHA-512 hashing for phone numbers and security answers
 - **Duplicate prevention**: `publicdata` collection with email as document ID
 - **Korean phone validation**: Support for 010/011/016/017/018/019 prefixes with formatting
-- **Email recovery with password reset**:
-  - Phone number-based email lookup via `UserService.findEmailByPhoneNumber()` (single account per phone)
-  - SMS verification through `PhoneVerificationService` (not for login, only for email recovery)
+- **ID recovery with password reset**:
+  - Phone number-based ID lookup via `UserService.findEmailByPhoneNumber()` (single account per phone)
+  - SMS verification through `PhoneVerificationService` (not for login, only for ID recovery)
   - Send password reset link without login
   - Firebase Auth `sendPasswordReset()` integration
 - **APNs integration**: Phone authentication support with silent push notification handling
