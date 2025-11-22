@@ -50,7 +50,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - Main Content
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 메인 컨텐츠 레이아웃
+    // ═══════════════════════════════════════
     private var mainContent: some View {
         VStack(spacing: DesignSystem.Spacing.lg + 4) {
             headerSection
@@ -75,7 +77,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - Header Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 헤더 영역 (제목 및 설명)
+    // ═══════════════════════════════════════
     private var headerSection: some View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             Text(headerTitle)
@@ -113,7 +117,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - Content Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 단계별 컨텐츠 표시
+    // ═══════════════════════════════════════
     @ViewBuilder
     private var contentSection: some View {
         switch viewModel.currentStep {
@@ -127,7 +133,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - Phone Input Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 전화번호 입력 섹션
+    // ═══════════════════════════════════════
     private var phoneInputSection: some View {
         VStack(spacing: DesignSystem.Spacing.sm + 4) {
             HStack {
@@ -149,7 +157,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - SMS Verification Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: SMS 인증번호 입력 섹션
+    // ═══════════════════════════════════════
     private var smsVerificationSection: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             // 인증번호 입력
@@ -204,7 +214,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - Results Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 아이디 찾기 결과 표시 섹션
+    // ═══════════════════════════════════════
     private var resultsSection: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             if let email = viewModel.foundEmail {
@@ -233,7 +245,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - Navigation Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 네비게이션 버튼 섹션
+    // ═══════════════════════════════════════
     private var navigationSection: some View {
         VStack(spacing: DesignSystem.Spacing.sm + 4) {
             if viewModel.currentStep != .showResults {
@@ -299,7 +313,9 @@ struct FindEmailView: View {
     }
 
     // MARK: - Actions
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 뒤로가기 버튼 동작 처리
+    // ═══════════════════════════════════════
     private func handleBackAction() {
         switch viewModel.currentStep {
         case .phoneInput:
@@ -311,6 +327,9 @@ struct FindEmailView: View {
         }
     }
 
+    // ═══════════════════════════════════════
+    // PURPOSE: 다음 버튼 동작 처리
+    // ═══════════════════════════════════════
     private func handleNextAction() async {
         switch viewModel.currentStep {
         case .phoneInput:
