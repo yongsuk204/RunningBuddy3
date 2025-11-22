@@ -28,7 +28,9 @@ import Combine
 class FindEmailViewModel: ObservableObject {
 
     // MARK: - Step Enum
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 아이디 찾기 프로세스 단계 정의
+    // ═══════════════════════════════════════
     enum FindStep {
         case phoneInput         // 전화번호 입력
         case smsVerification   // SMS 인증
@@ -36,7 +38,9 @@ class FindEmailViewModel: ObservableObject {
     }
 
     // MARK: - Constants
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 앱 전역 상수 정의
+    // ═══════════════════════════════════════
     private enum Constants {
         static let smsTimeout = 60  // SMS 재발송 타이머 시간 (초)
         static let timerInterval = 1.0  // 타이머 갱신 간격 (초)
@@ -44,8 +48,10 @@ class FindEmailViewModel: ObservableObject {
         static let verificationCodeLength = 6  // SMS 인증번호 길이
     }
 
-    // MARK: - Published Properties (UI Bindings)
-
+    // MARK: - Published Properties
+    // ═══════════════════════════════════════
+    // PURPOSE: UI 바인딩 상태 프로퍼티
+    // ═══════════════════════════════════════
     @Published var currentStep: FindStep = .phoneInput
     @Published var phoneNumber = ""
     @Published var verificationCode = ""
@@ -59,7 +65,9 @@ class FindEmailViewModel: ObservableObject {
     @Published var canResendSMS = false
 
     // MARK: - Private Properties
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 내부 상태 및 서비스 의존성
+    // ═══════════════════════════════════════
     private var smsCountdownTimer: Timer?
 
     // Services
@@ -68,7 +76,9 @@ class FindEmailViewModel: ObservableObject {
     private let phoneVerificationService = PhoneVerificationService.shared
 
     // MARK: - Computed Properties
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 유효성 검사 계산 프로퍼티
+    // ═══════════════════════════════════════
     /// SMS 인증번호가 완전히 입력되었는지 확인
     var isVerificationCodeComplete: Bool {
         verificationCode.count == Constants.verificationCodeLength
@@ -80,11 +90,15 @@ class FindEmailViewModel: ObservableObject {
     }
 
     // MARK: - Initializer
-
+    // ═══════════════════════════════════════
+    // PURPOSE: ViewModel 초기화
+    // ═══════════════════════════════════════
     init() {}
 
     // MARK: - Deinit
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 리소스 정리
+    // ═══════════════════════════════════════
     deinit {
         smsCountdownTimer?.invalidate()
     }

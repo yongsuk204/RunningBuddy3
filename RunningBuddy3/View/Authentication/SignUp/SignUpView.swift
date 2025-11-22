@@ -22,7 +22,9 @@ struct SignUpView: View {
     }
 
     // MARK: - Main Content
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 메인 컨텐츠 레이아웃
+    // ═══════════════════════════════════════
     private var mainContent: some View {
         VStack(spacing: DesignSystem.Spacing.lg + 4) {
             headerSection
@@ -33,7 +35,9 @@ struct SignUpView: View {
     }
 
     // MARK: - Header Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 헤더 영역 (제목)
+    // ═══════════════════════════════════════
     private var headerSection: some View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             Text("회원가입")
@@ -44,7 +48,9 @@ struct SignUpView: View {
     }
 
     // MARK: - Progress Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 진행 상태 표시
+    // ═══════════════════════════════════════
     private var progressSection: some View {
         ProgressIndicator(
             totalSteps: SignUpViewModel.SignUpStep.allCases.count,
@@ -55,7 +61,10 @@ struct SignUpView: View {
     }
 
     // MARK: - Current Step Modal
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 현재 단계에 맞는 모달 표시
+    // NOTE: 뷰빌더는 여러개의 뷰를 하나로 통합해서 각 상황에 맞는 뷰를 사용하게함
+    // ═══════════════════════════════════════
     @ViewBuilder
     private var currentStepModal: some View {
         switch viewModel.currentStep {
@@ -104,7 +113,9 @@ struct SignUpView: View {
     }
 
     // MARK: - Helper Functions
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 단계별 제목 반환
+    // ═══════════════════════════════════════
     private func stepTitle(for step: SignUpViewModel.SignUpStep) -> String {
         switch step {
         case .username: return "아이디"

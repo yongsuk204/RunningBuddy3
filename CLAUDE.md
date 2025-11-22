@@ -213,7 +213,9 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
 - **Step-by-step comments**: Complex functions break down logic with numbered steps
 - **Korean text in UI**: User-facing strings are in Korean, code/comments in English
 - **Modular structure**: One validator per input type, one modal per signup step
-- **Visual function separators**: Use decorative separators to clearly distinguish function implementations
+- **Visual separators**: Use decorative separators to clearly distinguish code sections
+  - Apply to functions, computed properties, and any logically distinct code blocks
+  - Not limited to functions - use wherever clear separation improves readability
 - **Developer emoji annotations**: 👈 emoji and following comments are written by developer
   - **NEVER remove, modify, or add these annotations** - they are manual markers
   - Example: `private var isListenerEnabled: Bool = true  // 👈 리스너는 Auth의 변화가 있을때만 자동감지함`
@@ -229,21 +231,40 @@ Example function list format:
  */
 ```
 
-Example visual function separator:
+Example visual separator (applies to all code sections):
 ```swift
+// For functions
 // ═══════════════════════════════════════
 // PURPOSE: 함수의 주요 목적 설명
 // ═══════════════════════════════════════
 func functionName() {
     // Implementation
 }
+
+// For computed properties
+// ═══════════════════════════════════════
+// PURPOSE: 다음 버튼 제목 반환
+// ═══════════════════════════════════════
+private var nextButtonTitle: String {
+    // Implementation
+}
+
+// For View properties (SwiftUI)
+// MARK: - Navigation Section
+// ═══════════════════════════════════════
+// PURPOSE: 네비게이션 버튼 섹션
+// ═══════════════════════════════════════
+private var navigationSection: some View {
+    // Implementation
+}
 ```
 
 This separator pattern provides:
-- Clear visual boundaries between functions
+- Clear visual boundaries between all code sections (functions, properties, computed properties)
 - Easy scanning when reviewing code
 - Consistent documentation style across the codebase
 - PURPOSE comment in all caps for better visibility
+- Apply to any logically distinct code block that benefits from visual separation
 
 ### Testing Authentication Flows
 - Test all signup steps in sequence (email → password → phone → security → completion)
