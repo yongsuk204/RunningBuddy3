@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // Purpose: 아이디 찾기 프로세스의 상태 관리 및 비즈니스 로직
 // MARK: - 함수 목록

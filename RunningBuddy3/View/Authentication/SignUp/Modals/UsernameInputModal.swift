@@ -45,10 +45,6 @@ struct UsernameInputModal: View {
 
             // 입력 필드 섹션
             VStack(alignment: .leading, spacing: 8) {
-                // 레이블
-                Text("아이디")
-                    .font(DesignSystem.Typography.subheadline)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
 
                 // 입력 필드 + 검증 아이콘
                 HStack(spacing: 12) {

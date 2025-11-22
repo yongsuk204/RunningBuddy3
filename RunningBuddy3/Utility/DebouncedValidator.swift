@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 // Purpose: 입력 검증을 위한 디바운싱 헬퍼 클래스
 // MARK: - 함수 목록
@@ -10,7 +11,7 @@ import Foundation
 
 /// 입력 검증 시 API 호출을 지연시키는 디바운싱 헬퍼
 /// 사용자가 타이핑을 멈춘 후 일정 시간이 지나면 검증 실행
-class DebouncedValidator {
+class DebouncedValidator: ObservableObject {
 
     // MARK: - Properties
 

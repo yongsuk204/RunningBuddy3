@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // Purpose: 순차적 모달 기반 회원가입 과정의 상태 관리 👈 모달순서가 어디인지, 모달별로 입력한 정보가뭔지 등등 상태관리
 // MARK: - 함수 목록
