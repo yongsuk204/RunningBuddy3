@@ -5,7 +5,6 @@ import Foundation
 /*
  * Validation Methods
  * - validateEmail(): 이메일 검증 결과를 EmailValidationResult로 반환
- * - isBasicValidFormat(): 간단한 형식 체크 (실시간 입력 검증용)
  */
 class EmailValidator {
 
@@ -66,17 +65,6 @@ class EmailValidator {
         }
 
         return .valid
-    }
-
-    // Purpose: 간단한 형식 체크 (실시간 입력 검증용)
-    func isBasicValidFormat(_ email: String) -> Bool {
-        // 최소한 @ 기호가 있고, 앞뒤에 문자가 있는지만 체크
-        guard email.contains("@") else { return false }
-
-        let components = email.split(separator: "@")
-        guard components.count == 2 else { return false }
-
-        return !components[0].isEmpty && !components[1].isEmpty
     }
 }
 

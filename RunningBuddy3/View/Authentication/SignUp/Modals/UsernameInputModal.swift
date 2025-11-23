@@ -85,9 +85,9 @@ struct UsernameInputModal: View {
             NavigationButtons(
                 canGoBack: false,
                 nextButtonTitle: "다음",
-                isNextDisabled: !viewModel.canProceedToNextStep(),
+                isNextDisabled: viewModel.validationStates.usernameStatus != .valid,
                 onNext: {
-                    viewModel.goToNextStep()
+                    viewModel.currentStep = .email
                 }
             )
         }
@@ -122,8 +122,8 @@ struct UsernameInputModal: View {
         // Step 4: 형식이 유효하면 일단 none으로 유지 (아직 중복 검사 안 함)
         viewModel.validationStates.usernameStatus = .none
 
-        // Step 5: 1초 디바운싱 후 중복 검사
-        validationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
+        // Step 5: 0.6초 디바운싱 후 중복 검사
+        validationTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { _ in
             Task { @MainActor in
                 await performDuplicateCheck(username)
             }

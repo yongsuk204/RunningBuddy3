@@ -12,9 +12,6 @@ import SwiftUI
  * Validation Methods
  * - handlePasswordChange(): 비밀번호 변경 시 정책 검증 및 상태 업데이트
  * - handleConfirmPasswordChange(): 비밀번호 확인 변경 시 일치 여부 검증
- *
- * Computed Properties
- * - canProceedToNext: 다음 단계 진행 가능 여부 확인
  */
 struct PasswordSetupModal: View {
 
@@ -143,24 +140,15 @@ struct PasswordSetupModal: View {
             canGoBack: true,
             canGoNext: true,
             nextButtonTitle: "다음",
-            isNextDisabled: !canProceedToNext,
+            isNextDisabled: !(viewModel.validationStates.passwordStatus == .valid &&
+                            viewModel.validationStates.confirmPasswordStatus == .valid),
             onBack: {
-                viewModel.goToPreviousStep()
+                viewModel.currentStep = .email
             },
             onNext: {
-                viewModel.goToNextStep()
+                viewModel.currentStep = .phoneNumber
             }
         )
-    }
-
-    // MARK: - Computed Properties
-
-    // Purpose: 다음 단계로 진행 가능한지 확인
-    private var canProceedToNext: Bool {
-        return viewModel.validationStates.passwordStatus == .valid &&
-               viewModel.validationStates.confirmPasswordStatus == .valid &&
-               !viewModel.signUpData.password.isEmpty &&
-               !viewModel.signUpData.confirmPassword.isEmpty
     }
 
     // MARK: - Helper Methods

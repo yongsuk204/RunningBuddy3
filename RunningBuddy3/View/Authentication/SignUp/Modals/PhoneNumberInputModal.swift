@@ -12,9 +12,6 @@ import Combine
  * Validation Methods
  * - handlePhoneNumberChange(): 전화번호 변경 시 실시간 포맷팅 및 검증 (디바운싱 포함)
  * - performDuplicateCheck(): 전화번호 중복 검사 (Firestore 조회)
- *
- * Computed Properties
- * - canProceedToNext: 다음 단계 진행 가능 여부 확인
  */
 struct PhoneNumberInputModal: View {
 
@@ -126,22 +123,14 @@ struct PhoneNumberInputModal: View {
             canGoBack: true,
             canGoNext: true,
             nextButtonTitle: "다음",
-            isNextDisabled: !canProceedToNext,
+            isNextDisabled: viewModel.validationStates.phoneNumberStatus != .valid,
             onBack: {
-                viewModel.goToPreviousStep()
+                viewModel.currentStep = .password
             },
             onNext: {
-                viewModel.goToNextStep()
+                viewModel.currentStep = .security
             }
         )
-    }
-
-    // MARK: - Computed Properties
-
-    // Purpose: 다음 단계로 진행 가능한지 확인
-    private var canProceedToNext: Bool {
-        return viewModel.validationStates.phoneNumberStatus == .valid &&
-               !viewModel.signUpData.phoneNumber.isEmpty
     }
 
     // MARK: - Helper Methods

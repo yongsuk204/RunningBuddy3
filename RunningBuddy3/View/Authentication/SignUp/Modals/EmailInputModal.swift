@@ -10,9 +10,6 @@ import SwiftUI
  *
  * Validation Methods
  * - handleEmailChange(): 이메일 변경 시 실시간 형식 검증 (중복 체크는 Firebase Auth가 자동 처리)
- *
- * Computed Properties
- * - canProceedToNext: 다음 단계 진행 가능 여부 확인
  */
 struct EmailInputModal: View {
 
@@ -120,22 +117,14 @@ struct EmailInputModal: View {
             canGoBack: true,
             canGoNext: true,
             nextButtonTitle: "다음",
-            isNextDisabled: !canProceedToNext,
+            isNextDisabled: viewModel.validationStates.emailStatus != .valid,
             onBack: {
-                viewModel.goToPreviousStep()
+                viewModel.currentStep = .username
             },
             onNext: {
-                viewModel.goToNextStep()
+                viewModel.currentStep = .password
             }
         )
-    }
-
-    // MARK: - Computed Properties
-
-    // Purpose: 다음 단계로 진행 가능한지 확인
-    private var canProceedToNext: Bool {
-        return viewModel.validationStates.emailStatus == .valid &&
-               !viewModel.signUpData.email.isEmpty
     }
 
     // MARK: - Helper Methods

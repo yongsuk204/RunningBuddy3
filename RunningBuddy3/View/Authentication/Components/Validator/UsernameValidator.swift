@@ -5,7 +5,6 @@ import Foundation
 /*
  * Validation Methods
  * - validateUsername(): 아이디 검증 결과를 UsernameValidationResult로 반환
- * - isBasicValidFormat(): 간단한 형식 체크 (실시간 입력 검증용)
  */
 class UsernameValidator {
 
@@ -64,18 +63,6 @@ class UsernameValidator {
         }
 
         return .valid
-    }
-
-    // Purpose: 간단한 형식 체크 (실시간 입력 검증용)
-    func isBasicValidFormat(_ username: String) -> Bool {
-        // 길이와 기본 문자 규칙만 체크
-        guard username.count >= minimumLength && username.count <= maximumLength else {
-            return false
-        }
-
-        let regex = try? NSRegularExpression(pattern: allowedCharacterPattern)
-        let range = NSRange(username.startIndex..., in: username)
-        return regex?.firstMatch(in: username, range: range) != nil
     }
 }
 

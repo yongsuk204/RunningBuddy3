@@ -4,7 +4,9 @@ import SwiftUI
 struct LoginView: View {
 
     // MARK: - Properties
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 환경 및 상태 프로퍼티
+    // ═══════════════════════════════════════
     @EnvironmentObject var authManager: AuthenticationManager
 
     // State Properties
@@ -16,7 +18,9 @@ struct LoginView: View {
     @State private var alertMessage = ""
 
     // MARK: - Body
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 메인 뷰 구조
+    // ═══════════════════════════════════════
     var body: some View {
         NavigationStack {
             ZStack {
@@ -40,6 +44,13 @@ struct LoginView: View {
                         .background(Color.black.opacity(DesignSystem.Opacity.medium))
                 }
             }
+            .onChange(of: authManager.errorMessage) { _, newValue in
+                if !newValue.isEmpty {
+                    alertMessage = newValue
+                    showingAlert = true
+                    authManager.errorMessage = ""
+                }
+            }
             .onAppear {
                 // LoginView 진입 시 이전 에러 메시지 초기화 = 에러 메시지 오염 방지(Error Message Pollution Prevention) 패턴
                 // Note: FindEmailView에서도 비밀번호 재설정 완료 후 초기화함
@@ -49,7 +60,9 @@ struct LoginView: View {
     }
 
     // MARK: - Main Content
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 메인 컨텐츠 레이아웃
+    // ═══════════════════════════════════════
     private var mainContent: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             headerSection
@@ -71,7 +84,9 @@ struct LoginView: View {
     }
 
     // MARK: - Header Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 헤더 영역 (앱 제목)
+    // ═══════════════════════════════════════
     private var headerSection: some View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             Text("Running Buddy")
@@ -82,7 +97,9 @@ struct LoginView: View {
     }
 
     // MARK: - Content Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 입력 필드 영역 (아이디, 비밀번호)
+    // ═══════════════════════════════════════
     private var contentSection: some View {
         VStack(spacing: DesignSystem.Spacing.md - 1) {
             // 아이디 입력 필드
@@ -116,13 +133,15 @@ struct LoginView: View {
     }
 
     // MARK: - Navigation Section
-
+    // ═══════════════════════════════════════
+    // PURPOSE: 네비게이션 버튼 섹션
+    // ═══════════════════════════════════════
     private var navigationSection: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             // 로그인 버튼
             Button {
                 Task {
-                    await signIn()
+                    await authManager.signIn(username: username, password: password)
                 }
             } label: {
                 Text("로그인")
@@ -155,25 +174,10 @@ struct LoginView: View {
         .padding(.bottom, DesignSystem.Spacing.md)
     }
 
+    // ═══════════════════════════════════════
+    // PURPOSE: 로그인 버튼 활성화 여부 확인
+    // ═══════════════════════════════════════
     private var isLoginButtonEnabled: Bool {
         !username.isEmpty && !password.isEmpty
-    }
-
-    // MARK: - Actions
-
-    // Purpose: 로그인 처리 및 에러 메시지를 alert로 표시
-    private func signIn() async {
-        await authManager.signIn(username: username, password: password)
-
-        // 로그인 실패 시 에러 메시지를 alert로 표시
-        if !authManager.errorMessage.isEmpty {
-            alertMessage = authManager.errorMessage
-            showingAlert = true
-
-            // errorMessage 초기화
-            await MainActor.run {
-                authManager.errorMessage = ""
-            }
-        }
     }
 }

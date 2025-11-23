@@ -173,7 +173,7 @@ struct CompletionModal: View {
             nextButtonTitle: "회원가입 완료",
             isNextDisabled: authManager.isLoading,
             onBack: {
-                viewModel.goToPreviousStep()
+                viewModel.currentStep = .security
             },
             onNext: {
                 performSignUp()

@@ -8,9 +8,6 @@ import SwiftUI
  * - securityQuestionSection: 보안 질문 선택 메뉴
  * - securityAnswerSection: 보안 답변 입력 필드
  * - navigationSection: 이전/다음 버튼
- *
- * Computed Properties
- * - canProceedToNext: 다음 단계 진행 가능 여부 확인
  */
 struct SecurityQuestionModal: View {
 
@@ -153,29 +150,22 @@ struct SecurityQuestionModal: View {
     // MARK: - Navigation Section
 
     private var navigationSection: some View {
-        NavigationButtons(
+        let trimmedAnswer = viewModel.signUpData.securityAnswer.trimmingCharacters(in: .whitespaces)
+        let isValid = !viewModel.signUpData.selectedSecurityQuestion.isEmpty &&
+                     trimmedAnswer.count >= 2 &&
+                     !viewModel.signUpData.securityAnswer.contains(" ")
+
+        return NavigationButtons(
             canGoBack: true,
             canGoNext: true,
             nextButtonTitle: "다음",
-            isNextDisabled: !canProceedToNext,
+            isNextDisabled: !isValid,
             onBack: {
-                viewModel.goToPreviousStep()
+                viewModel.currentStep = .phoneNumber
             },
             onNext: {
-                viewModel.goToNextStep()
+                viewModel.currentStep = .completion
             }
         )
-    }
-
-    // MARK: - Computed Properties
-
-    // Purpose: 다음 단계로 진행 가능한지 확인
-    private var canProceedToNext: Bool {
-        // 공백 제거 후 유효 문자 확인
-        let trimmedAnswer = viewModel.signUpData.securityAnswer.trimmingCharacters(in: .whitespaces)
-
-        return !viewModel.signUpData.selectedSecurityQuestion.isEmpty &&
-               trimmedAnswer.count >= 2 &&  // 공백만 입력 방지 + 최소 2글자
-               !viewModel.signUpData.securityAnswer.contains(" ")  // 공백 포함 방지
     }
 }

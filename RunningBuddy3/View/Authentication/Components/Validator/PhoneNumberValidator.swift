@@ -5,7 +5,6 @@ import Foundation
 /*
  * Validation Methods
  * - validatePhoneNumber(): 전화번호 형식 검증 (010, 011, 016, 017, 018, 019)
- * - isBasicValidFormat(): 기본 형식 검증 (실시간 입력용)
  *
  * Formatting Methods
  * - formatPhoneNumber(): 하이픈 자동 추가 (010-1234-5678)
@@ -53,20 +52,6 @@ class PhoneNumberValidator {
         }
 
         return (true, "")
-    }
-
-    // Purpose: 기본 형식 검증 (실시간 입력 체크용)
-    func isBasicValidFormat(_ phoneNumber: String) -> Bool {
-        let numbers = extractNumbers(from: phoneNumber)
-
-        // 최소 3자리 이상이어야 함 (prefix 확인용)
-        guard numbers.count >= 3 else { return false }
-
-        // 유효한 prefix로 시작하는지 확인
-        let validPrefixes = ["010", "011", "016", "017", "018", "019"]
-        let prefix = String(numbers.prefix(3))
-
-        return validPrefixes.contains(prefix)
     }
 
     // MARK: - Formatting Methods

@@ -49,16 +49,3 @@ struct ValidationFeedbackIcon: View {
         .frame(width: size, height: size)
     }
 }
-
-// MARK: - Preview
-
-#Preview {
-    HStack(spacing: 15) {
-        ValidationFeedbackIcon(status: .none)
-        ValidationFeedbackIcon(status: .checking)
-        ValidationFeedbackIcon(status: .valid)
-        ValidationFeedbackIcon(status: .invalid)
-    }
-    .padding()
-    .background(Color.gray.opacity(0.2))
-}
