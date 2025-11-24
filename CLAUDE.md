@@ -18,34 +18,48 @@ RunningBuddy3 is an iOS application built with SwiftUI and Firebase, targeting i
 
 ### Directory Structure
 
-The project follows a modular MVVM architecture with clear separation of concerns:
+The project follows a **feature-based modular architecture** where related components are grouped by functionality:
 
 - **Application/** - App lifecycle and initialization
   - `RunningBuddy3App.swift` - Main app entry point with Firebase initialization
-  - `ContentView.swift` - Root navigation view
+  - `RootView.swift` - Root navigation view
   - `FirebaseManager.swift` - Singleton for Firebase service access
-  - `Theme/ColorTheme.swift` - Fixed app color theme (Swedish/IKEA style: sky blue → lemon yellow)
 
-- **View/** - SwiftUI views organized by feature
-  - `Authentication/` - Modal-based authentication system
-    - `SignUpview/` - Sequential signup flow with individual modals
-    - `LoginView/` - Login interface
-    - `FindEmailView/` - ID recovery by phone number
-  - `Main/` - Main app navigation (MainAppView.swift)
-
-- **Service/** - Business logic and external service integration
-  - `Authentication/AuthenticationManager.swift` - Firebase Auth wrapper with state management
-  - `Authentication/PhoneVerificationService.swift` - SMS verification for ID recovery (not login)
-  - `User/UserService.swift` - Firestore user data management, hashing coordination, and ID recovery
-  - `Config/` - Validation and security services
-    - `SecurityService.swift` - Unified hashing service with type-safe DataType enum (salt/pepper integrated)
+- **Authentication/** - Complete authentication feature module
+  - `Components/Validator/` - Input validation services
     - `EmailValidator.swift` - RFC-compliant email validation
     - `PhoneNumberValidator.swift` - Korean phone number validation and formatting
     - `PasswordValidator.swift` - Password policy enforcement
+  - `View/` - Authentication UI components
+    - `SignUp/` - Sequential signup flow (SignUpView + SignUpViewModel + Modals)
+    - `Login/` - Login interface (LoginView)
+    - `FindEmail/` - ID recovery (FindEmailView + FindEmailViewModel)
+    - `Main/` - Main app navigation (MainAppView, SettingsView)
+
+- **Sensor/** - Complete sensor data feature module
+  - `Service/` - Sensor data processing services
+    - `CadenceCalculator.swift` - Real-time cadence calculation from accelerometer/gyroscope
+    - `DistanceCalculator.swift` - GPS-based distance tracking with route polyline
+    - `HeadingManager.swift` - Compass heading for map orientation
+    - `SensorDataExporter.swift` - CSV export functionality for workout data
+  - `View/` - Sensor UI components
+    - `SensorDataView.swift` - Main sensor dashboard with map
+    - `Components/` - Reusable sensor UI components
+      - `CompactStatusCardView.swift` - Watch/GPS status indicators
+      - `UnifiedMetricsCardView.swift` - Heart rate, cadence, distance metrics display
+
+- **Service/** - Shared services used across features
+  - `Authentication/` - Core authentication services
+    - `AuthenticationManager.swift` - Firebase Auth wrapper with state management
+    - `PhoneVerificationService.swift` - SMS verification for ID recovery
+    - `SecurityService.swift` - Hashing service for security answers (SHA-512 + pepper)
+  - `User/UserService.swift` - Firestore user data management and ID recovery
+  - `Watch/PhoneConnectivityManager.swift` - iPhone-Watch communication via WatchConnectivity
 
 - **DataModel/** - Data models and entities
-  - `User/UserData.swift` - User model with Firestore serialization (all sensitive data hashed)
-  - `Sensor/SensorData.swift` - Watch sensor data model with dictionary serialization for WatchConnectivity
+  - `User/UserData.swift` - User model with Firestore serialization
+  - `Sensor/SensorData.swift` - Watch sensor data model with dictionary serialization
+  - `Workout/WorkoutData.swift` - Workout session data model
 
 - **Resource/** - App-wide resources
   - `DesignSystem.swift` - Centralized design tokens (colors, spacing, typography, shadows)
