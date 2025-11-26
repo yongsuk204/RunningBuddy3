@@ -408,6 +408,20 @@ var body: some View {
 
 ## watchOS Companion App
 
+### Apple Watch Mounting Specification
+
+**Mounting Position**: 왼쪽 발목 안쪽 복사뼈 바로 위쪽 (Left ankle, just above the medial malleolus)
+
+**Coordinate System** (Device Frame):
+- **+X axis**: Points toward the ground (발바닥 방향) - Horizontal plane rotation axis
+- **+Y axis**: Points forward (정면 방향) - Coronal plane rotation axis
+- **+Z axis**: Points toward the right foot (오른쪽 발 방향) - Sagittal plane rotation axis
+
+**Physical Interpretation During Running**:
+- **Accelerometer X**: Vertical acceleration (ground impact detection)
+- **Accelerometer Y**: Forward/backward swing acceleration (used in cadence detection)
+- **Gyroscope Z**: Foot rotation (primary axis for cadence peak detection)
+
 ### Directory Structure
 - **RunningBuddy3Watch Watch App/** - watchOS app (separate target)
   - `WatchWorkoutView.swift` - Main workout interface
