@@ -34,13 +34,29 @@ DerivedData/
 timeline.xctimeline
 playground.xcworkspace
 
+## Xcode Patch
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcworkspace/contents.xcworkspacedata
+/*.gcno
+
+## Swift Package Manager
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj/project.xcworkspace/
+.swiftpm/
+
 # Swift Package Manager
 #
 .build/
 
 # CocoaPods
 #
-# Pods/
+Pods/
+!Podfile
+!Podfile.lock
 
 # Carthage
 #
@@ -73,7 +89,7 @@ functions/
 
 # Security Configuration Files
 # Contains sensitive pepper values and security constants
-RunningBuddy3/Service/Authentication/SecurityService.swift
+RunningBuddy3/Authentication/Service/SecurityService.swift
 
 # macOS
 .DS_Store
@@ -115,3 +131,27 @@ Temporary Items
 
 # Logs
 *.log
+
+# IDEs
+## Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+## AppCode
+.idea/
+
+## Claude Code
+.claude/
+
+# Testing
+*.xcresult
+
+# CI/CD
+.github/workflows/*.yml.bak
+
+# Temporary files
+tmp/
+temp/
