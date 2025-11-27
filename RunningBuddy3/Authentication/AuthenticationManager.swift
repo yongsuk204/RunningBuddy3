@@ -7,7 +7,7 @@ import Combine
 // MARK: - 함수 목록
 /*
  * Authentication State
- * - setupAuthStateListener(): Firebase 인증 상태 변경 감지 설정
+ * - setupAuthStateListener(): Firebase 인증 상태 변경 감지 설정 및 자동 UserData 로드
  * - disableListener(): 리스너 일시 비활성화 (아이디 찾기 SMS 인증용)
  * - enableListener(): 리스너 다시 활성화
  *
@@ -17,6 +17,9 @@ import Combine
  * - signOut(): 로그아웃 처리
  * - deleteCurrentAccount(): 현재 계정 삭제
  * - sendPasswordReset(): 비밀번호 재설정 이메일 발송
+ *
+ * Helper Methods
+ * - loadUserData(): 사용자 Firestore 데이터 로드 및 캐싱
  *
  * Error Handling
  * - handleAuthError(): Firebase Auth 에러를 한글 메시지로 변환
@@ -33,6 +36,9 @@ class AuthenticationManager: ObservableObject {
 
     // Purpose: 에러 메시지 저장
     @Published var errorMessage: String = ""
+
+    // Purpose: 현재 사용자의 Firestore 데이터 캐싱
+    @Published var currentUserData: UserData?
 
     // MARK: - Private Properties
 
@@ -71,6 +77,13 @@ class AuthenticationManager: ObservableObject {
             Task { @MainActor in
                 guard self?.isListenerEnabled == true else { return }
                 self?.currentUser = user
+
+                // 로그인 시 사용자 데이터 자동 로드, 로그아웃 시 캐시 초기화
+                if let user = user {
+                    await self?.loadUserData(userId: user.uid)
+                } else {
+                    self?.currentUserData = nil
+                }
             }
         }
     }
@@ -233,6 +246,28 @@ class AuthenticationManager: ObservableObject {
         // Step 5: 로딩 상태 종료
         await MainActor.run {
             isLoading = false
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 사용자 데이터 로드 및 캐싱
+    // ═══════════════════════════════════════
+    private func loadUserData(userId: String) async {
+        do {
+            let userData = try await userService.getUserData(userId: userId)
+            await MainActor.run {
+                self.currentUserData = userData
+            }
+
+            if let legLength = userData?.legLength {
+                print("✅ 사용자 데이터 로드 완료 (다리 길이: \(String(format: "%.1f", legLength)) cm)")
+            } else {
+                print("✅ 사용자 데이터 로드 완료 (다리 길이 미설정)")
+            }
+        } catch {
+            print("⚠️ 사용자 데이터 로드 실패: \(error.localizedDescription)")
         }
     }
 

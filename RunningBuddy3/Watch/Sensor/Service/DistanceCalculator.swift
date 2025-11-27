@@ -2,24 +2,23 @@ import Foundation
 import CoreLocation
 import Combine
 
-// Purpose: GPS 위치 데이터로부터 이동 거리 계산 및 관리
+// Purpose: GPS 및 센서 기반 거리 계산 관리자
 // MARK: - 함수 목록
 /*
- * Distance Calculation
- * - addLocation(_:): 새 위치 추가 및 거리 계산
+ * GPS Distance Calculation
+ * - addLocation(_:): 새 위치 추가 및 GPS 거리 계산
  * - resetDistance(): 거리 초기화
- * - calculateDistance(from:to:): 두 위치 간 거리 계산 (Haversine)
  *
- * Validation
- * - isValidLocation(_:): 위치 데이터 유효성 검증
- * - isRealisticSpeed(distance:time:): 속도 필터링
+ * Stride-Based Distance Estimation (보폭 추정)
+ * - updateUserLegLength(_:): 사용자 다리 길이 설정 (cm)
+ * - addEstimatedDistance(cadence:steps:): 케이던스와 걸음 수 기반 거리 추정
+ * - calculateStepLength(cadence:): 동적 보폭 계산 (케이던스에 따라 변화)
  *
- * 거리 계산 알고리즘:
- * 1. 연속된 GPS 좌표 수신
- * 2. 이전 위치와 현재 위치 간 거리 계산 (CLLocation.distance)
- * 3. 정확도 필터링 (horizontalAccuracy < 20m)
- * 4. 속도 필터링 (< 15 m/s = 54 km/h)
- * 5. 누적 거리 업데이트
+ * Stride Calculation Formula
+ * - Step Length = Leg Length × (baseMultiplier + (cadence - baseCadence) * bonusFactor)
+ * - baseMultiplier = 1.05 (기본 보폭 계수)
+ * - baseCadence = 130.0 (기준 케이던스)
+ * - bonusFactor = 0.004 (케이던스 증가 시 보폭 증가율)
  */
 
 class DistanceCalculator: ObservableObject {
@@ -36,10 +35,17 @@ class DistanceCalculator: ObservableObject {
     // Purpose: 현재 속도 (m/s)
     @Published var currentSpeed: Double = 0.0
 
+    // ════════════════════════════════════════════════════════════════════
+    // 🚧 [TEMPORARY] 보폭 거리 분리 표시용 (추후 제거 예정)
+    // ════════════════════════════════════════════════════════════════════
+    // Purpose: 보폭 추정 거리 (미터 단위)
+    @Published var estimatedDistance: Double = 0.0
+    // ════════════════════════════════════════════════════════════════════
+
     // Purpose: 수집된 GPS 좌표 배열 (경로 표시용)
     @Published var locations: [CLLocationCoordinate2D] = []
 
-    // MARK: - Private Properties
+    // MARK: - Private Properties (GPS)
 
     // Purpose: 이전 위치 (거리 계산용)
     private var previousLocation: CLLocation?
@@ -50,9 +56,72 @@ class DistanceCalculator: ObservableObject {
     // Purpose: 최대 허용 속도 (m/s) - 15 m/s = 54 km/h
     private let maxRealisticSpeed: Double = 15.0
 
+    // MARK: - Private Properties (Stride Estimation)
+
+    // Purpose: 사용자 다리 길이 (미터 단위, 기본값 0.9m = 키 170cm 추정)
+    private var userLegLengthMeter: Double = 0.9
+
+    // Purpose: 기본 보폭 계수 (다리 길이의 1.05배)
+    private let baseStepMultiplier: Double = 1.05
+
+    // Purpose: 기준 케이던스 (SPM)
+    private let baseCadence: Double = 130.0
+
+    // Purpose: 케이던스 증가 시 보폭 증가율
+    private let cadenceBonusFactor: Double = 0.004
+
     // MARK: - Initialization
 
     private init() {}
+
+    // MARK: - Public Methods (Stride Estimation)
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 사용자 다리 길이 설정 (Firestore에서 로드)
+    // PARAMETERS:
+    //   - lengthCm: 다리 길이 (cm 단위)
+    // ═══════════════════════════════════════
+    func updateUserLegLength(_ lengthCm: Double?) {
+        guard let lengthCm = lengthCm, lengthCm > 0 else {
+            print("⚠️ 유효하지 않은 다리 길이, 기본값 사용 (90cm)")
+            return
+        }
+
+        userLegLengthMeter = lengthCm / 100.0  // cm → m 변환
+        print("✅ 다리 길이 설정: \(String(format: "%.1f", lengthCm)) cm (\(String(format: "%.2f", userLegLengthMeter)) m)")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 케이던스와 걸음 수 기반 거리 추정
+    // PARAMETERS:
+    //   - cadence: 현재 케이던스 (SPM)
+    //   - steps: 누적 걸음 수 (양발 기준)
+    // FUNCTIONALITY:
+    //   - 동적 보폭 계산 (케이던스에 따라 변화)
+    //   - 거리 누적 업데이트
+    // ═══════════════════════════════════════
+    func addEstimatedDistance(cadence: Double, steps: Int) {
+        // Step 1: 케이던스 유효성 검증 (60~300 SPM 범위)
+        guard cadence >= 60 && cadence <= 300 else {
+            print("⚠️ 유효하지 않은 케이던스: \(cadence) SPM")
+            return
+        }
+
+        // Step 2: 동적 보폭 계산
+        let stepLength = calculateStepLength(cadence: cadence)
+
+        // Step 3: 추정 거리 계산 (보폭 × 걸음 수)
+        let calculatedDistance = stepLength * Double(steps)
+
+        // Step 4: 누적 거리 업데이트 (메인 스레드)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.totalDistance += calculatedDistance
+            self.estimatedDistance += calculatedDistance  // 🚧 [TEMPORARY] 보폭 추정 거리 분리 저장
+        }
+
+        print("📊 보폭 추정 거리: +\(String(format: "%.1f", calculatedDistance))m (총: \(String(format: "%.2f", estimatedDistance / 1000))km, 보폭: \(String(format: "%.2f", stepLength))m)")
+    }
 
     // MARK: - Public Methods
 
@@ -90,11 +159,12 @@ class DistanceCalculator: ObservableObject {
 
             // Step 5: 누적 거리 업데이트
             DispatchQueue.main.async { [weak self] in
-                self?.totalDistance += distance
-                self?.currentSpeed = distance / timeDelta
+                guard let self = self else { return }
+                self.totalDistance += distance
+                self.currentSpeed = distance / timeDelta
             }
 
-            print("📍 거리 업데이트: +\(String(format: "%.1f", distance))m (총: \(String(format: "%.2f", totalDistance / 1000))km)")
+            print("📍 GPS 거리 업데이트: +\(String(format: "%.1f", distance))m (총: \(String(format: "%.2f", totalDistance / 1000))km)")
         }
 
         // Step 6: 현재 위치를 이전 위치로 저장
@@ -111,6 +181,7 @@ class DistanceCalculator: ObservableObject {
     // ═══════════════════════════════════════
     func resetDistance() {
         totalDistance = 0.0
+        estimatedDistance = 0.0  // 🚧 [TEMPORARY]
         previousLocation = nil
         currentSpeed = 0.0
         locations.removeAll()
@@ -159,5 +230,24 @@ class DistanceCalculator: ObservableObject {
 
         let speed = distance / time
         return speed < maxRealisticSpeed
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 동적 보폭 계산 (케이던스에 따라 변화)
+    // PARAMETERS:
+    //   - cadence: 현재 케이던스 (SPM)
+    // RETURNS: 보폭 (미터)
+    // FORMULA:
+    //   Step Length = Leg Length × (baseMultiplier + (cadence - baseCadence) * bonusFactor)
+    // EXAMPLE:
+    //   다리 길이 90cm, 케이던스 150 SPM일 때:
+    //   보폭 = 0.9 × (1.05 + (150 - 130) * 0.004)
+    //        = 0.9 × (1.05 + 0.08)
+    //        = 0.9 × 1.13
+    //        = 1.017m
+    // ═══════════════════════════════════════
+    private func calculateStepLength(cadence: Double) -> Double {
+        let multiplier = baseStepMultiplier + (cadence - baseCadence) * cadenceBonusFactor
+        return userLegLengthMeter * multiplier
     }
 }

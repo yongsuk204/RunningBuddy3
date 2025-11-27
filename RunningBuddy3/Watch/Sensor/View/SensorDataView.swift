@@ -35,6 +35,7 @@ struct SensorDataView: View {
 
     // MARK: - Properties
 
+    @EnvironmentObject var authManager: AuthenticationManager
     @StateObject private var connectivityManager = PhoneConnectivityManager.shared
     @StateObject private var exporter = SensorDataExporter()
     @StateObject private var cadenceCalculator = CadenceCalculator.shared
@@ -187,6 +188,11 @@ struct SensorDataView: View {
         }
         .onAppear {
             print("📱 SensorDataView 진입 - Watch 연결 상태: \(connectivityManager.isWatchReachable)")
+
+            // AuthenticationManager에 캐싱된 다리 길이를 DistanceCalculator에 설정
+            if let legLength = authManager.currentUserData?.legLength {
+                DistanceCalculator.shared.updateUserLegLength(legLength)
+            }
         }
         .onDisappear {
             // 뷰가 사라질 때 heading 업데이트 중지
@@ -293,6 +299,18 @@ struct SensorDataView: View {
 
             Spacer()
 
+            // ════════════════════════════════════════════════════════════════════
+            // 🚧 [TEMPORARY] 보폭 추정 거리 표시 (추후 제거 예정)
+            // ════════════════════════════════════════════════════════════════════
+            // 보폭 추정 거리 카드
+            distanceCard(
+                title: "보폭 추정",
+                distance: distanceCalculator.estimatedDistance,
+                color: .orange
+            )
+            .padding(.horizontal)
+            // ════════════════════════════════════════════════════════════════════
+
             // 하단: 통합 수치 카드
             UnifiedMetricsCard(
                 heartRate: connectivityManager.receivedSensorData?.heartRate,
@@ -371,6 +389,41 @@ struct SensorDataView: View {
     }
 
     // MARK: - Helper Methods
+
+    // ════════════════════════════════════════════════════════════════════
+    // 🚧 [TEMPORARY] 보폭 거리 카드 (추후 제거 예정)
+    // ════════════════════════════════════════════════════════════════════
+    // PURPOSE: 거리 표시 카드
+    // PARAMETERS:
+    //   - title: 카드 제목
+    //   - distance: 거리 (미터)
+    //   - color: 색상
+    // ════════════════════════════════════════════════════════════════════
+    private func distanceCard(title: String, distance: Double, color: Color) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+
+                Text(String(format: "%.2f km", distance / 1000.0))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(color)
+            }
+
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.black.opacity(0.5))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(color.opacity(0.3), lineWidth: 1)
+        )
+    }
+    // ════════════════════════════════════════════════════════════════════
 
     private func updateCameraPosition() {
         // Step 1: 프로그래밍 방식 업데이트임을 표시

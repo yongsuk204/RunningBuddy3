@@ -210,56 +210,67 @@ struct SettingsView: View {
             return
         }
 
-        guard let userId = authManager.currentUser?.uid else {
-            return
-        }
-
         Task {
             isLoading = true
 
-            do {
-                // 다리 길이 계산 (키 × 0.53)
-                let calculatedLegLength = inputHeight * 0.53
+            // 다리 길이 계산 (키 × 0.53)
+            let calculatedLegLength = inputHeight * 0.53
 
-                // 다리 길이만 저장 (키는 저장하지 않음)
-                try await UserService.shared.updateUserData(userId: userId, updates: [
-                    "legLength": calculatedLegLength
-                ])
+            // 공통 저장 로직 호출
+            await saveLegLengthToFirestore(calculatedLegLength)
 
-                await MainActor.run {
-                    legLength = calculatedLegLength
-                    isLoading = false
-                }
-
-                print("키: \(String(format: "%.1f", inputHeight)) cm")
-                print("다리 길이 계산 및 저장: \(String(format: "%.1f", calculatedLegLength)) cm")
-            } catch {
-                await MainActor.run {
-                    isLoading = false
-                }
-                print("저장 실패: \(error.localizedDescription)")
+            await MainActor.run {
+                legLength = calculatedLegLength
+                isLoading = false
             }
+
+            print("키: \(String(format: "%.1f", inputHeight)) cm")
+            print("다리 길이 계산 및 저장: \(String(format: "%.1f", calculatedLegLength)) cm")
         }
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 다리 길이 저장
+    // PURPOSE: 슬라이더 조정 후 다리 길이 저장
     // ═══════════════════════════════════════
     private func saveLegLength() {
+        Task {
+            await saveLegLengthToFirestore(legLength)
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 다리 길이 Firestore 저장 및 캐시 업데이트 (공통 로직)
+    // ═══════════════════════════════════════
+    private func saveLegLengthToFirestore(_ legLengthValue: Double) async {
         guard let userId = authManager.currentUser?.uid else {
             return
         }
 
-        Task {
-            do {
-                try await UserService.shared.updateUserData(userId: userId, updates: [
-                    "legLength": legLength
-                ])
+        do {
+            // Step 1: Firestore 저장
+            try await UserService.shared.updateUserData(userId: userId, updates: [
+                "legLength": legLengthValue
+            ])
 
-                print("다리 길이 저장 완료: \(String(format: "%.1f", legLength)) cm")
-            } catch {
-                print("다리 길이 저장 실패: \(error.localizedDescription)")
+            // Step 2: AuthenticationManager 캐시 업데이트
+            await MainActor.run {
+                if let userData = authManager.currentUserData {
+                    authManager.currentUserData = UserData(
+                        userId: userData.userId,
+                        username: userData.username,
+                        email: userData.email,
+                        phoneNumber: userData.phoneNumber,
+                        securityQuestion: userData.securityQuestion,
+                        securityAnswer: userData.securityAnswer,
+                        legLength: legLengthValue,
+                        createdAt: userData.createdAt
+                    )
+                }
             }
+
+            print("✅ 다리 길이 저장 완료: \(String(format: "%.1f", legLengthValue)) cm")
+        } catch {
+            print("⚠️ 다리 길이 저장 실패: \(error.localizedDescription)")
         }
     }
 
