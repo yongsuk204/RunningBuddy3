@@ -15,6 +15,10 @@ struct SettingsView: View {
     @State private var showingLegLengthInput = false
     @State private var isLoading = false
 
+    // Calibration Properties
+    @State private var calibrationData: CalibrationData? = nil
+    @State private var showingCalibrationView = false
+
     // MARK: - Body
 
     var body: some View {
@@ -26,6 +30,9 @@ struct SettingsView: View {
             VStack(spacing: 24) {
                 // 다리 길이 섹션
                 legLengthSection
+
+                // 캘리브레이션 섹션
+                calibrationSection
 
                 // 계정 섹션
                 accountSection
@@ -41,16 +48,20 @@ struct SettingsView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             loadLegLength()
+            loadCalibrationData()
         }
-        .alert("키 입력", isPresented: $showingLegLengthInput) {
-            TextField("키 (cm)", text: $legLengthInput)
+        .sheet(isPresented: $showingCalibrationView) {
+            CalibrationView(calibrationData: $calibrationData, onSave: saveCalibrationData)
+        }
+        .alert("다리 길이 입력", isPresented: $showingLegLengthInput) {
+            TextField("다리 길이 (cm)", text: $legLengthInput)
                 .keyboardType(.decimalPad)
             Button("취소", role: .cancel) {}
             Button("확인") {
                 handleLegLengthInput()
             }
         } message: {
-            Text("키를 입력하면 다리 길이가 자동 계산됩니다.")
+            Text("일반적인 다리길이는 키 × 0.53 입니다.")
         }
     }
 
@@ -114,10 +125,134 @@ struct SettingsView: View {
                             .font(.title3)
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("키 입력")
+                            Text("다리 길이 입력")
                                 .font(.headline)
 
-                            Text("키를 입력하여 다리 길이를 계산하세요")
+                            Text("다리 길이를 직접 입력하세요")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                    .foregroundColor(.white)
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - Calibration Section
+    // ═══════════════════════════════════════
+    // PURPOSE: 100m 캘리브레이션 섹션
+    // ═══════════════════════════════════════
+    private var calibrationSection: some View {
+        VStack(spacing: 16) {
+            // 섹션 헤더
+            HStack {
+                Image(systemName: "ruler")
+                    .font(.title2)
+                    .foregroundColor(.white)
+
+                Text("100m 보폭 측정")
+                    .font(.headline)
+                    .foregroundColor(.white)
+
+                Spacer()
+            }
+
+            if let calibration = calibrationData {
+                // 캘리브레이션 데이터 표시
+                VStack(spacing: 12) {
+                    // 평균 보폭
+                    HStack {
+                        Text("평균 보폭")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.7))
+
+                        Spacer()
+
+                        Text(String(format: "%.2f m", calibration.averageStepLength))
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+
+                    Divider()
+                        .background(Color.white.opacity(0.3))
+
+                    // 걸음 수
+                    HStack {
+                        Text("걸음 수")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.7))
+
+                        Spacer()
+
+                        Text("\(calibration.totalSteps) 걸음")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+
+                    Divider()
+                        .background(Color.white.opacity(0.3))
+
+                    // 평균 케이던스
+                    HStack {
+                        Text("평균 케이던스")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.7))
+
+                        Spacer()
+
+                        Text(String(format: "%.0f SPM", calibration.averageCadence))
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+
+                    // 재측정 버튼
+                    Button {
+                        showingCalibrationView = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                            Text("재측정")
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.white.opacity(0.2))
+                        )
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
+                )
+            } else {
+                // 캘리브레이션 측정 안내
+                Button {
+                    showingCalibrationView = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "figure.run")
+                            .font(.title3)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("100m 측정하기")
+                                .font(.headline)
+
+                            Text("실제로 100m를 달려서 정확한 보폭을 측정하세요")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
                         }
@@ -203,29 +338,39 @@ struct SettingsView: View {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 키 입력 후 다리 길이 계산 및 저장
+    // PURPOSE: 다리 길이 직접 입력 및 저장
     // ═══════════════════════════════════════
     private func handleLegLengthInput() {
-        guard let inputHeight = Double(legLengthInput), inputHeight > 0 else {
+        guard let inputLegLength = Double(legLengthInput), inputLegLength > 0 else {
+            return
+        }
+
+        guard let userId = authManager.currentUser?.uid else {
             return
         }
 
         Task {
             isLoading = true
 
-            // 다리 길이 계산 (키 × 0.53)
-            let calculatedLegLength = inputHeight * 0.53
+            do {
+                // UserService에서 다리 길이 저장 + 캐시 업데이트
+                try await UserService.shared.updateLegLength(
+                    userId: userId,
+                    legLength: inputLegLength,
+                    authManager: authManager
+                )
 
-            // 공통 저장 로직 호출
-            await saveLegLengthToFirestore(calculatedLegLength)
+                await MainActor.run {
+                    legLength = inputLegLength
+                    isLoading = false
+                }
 
-            await MainActor.run {
-                legLength = calculatedLegLength
-                isLoading = false
+            } catch {
+                print("⚠️ 다리 길이 저장 실패: \(error.localizedDescription)")
+                await MainActor.run {
+                    isLoading = false
+                }
             }
-
-            print("키: \(String(format: "%.1f", inputHeight)) cm")
-            print("다리 길이 계산 및 저장: \(String(format: "%.1f", calculatedLegLength)) cm")
         }
     }
 
@@ -233,44 +378,78 @@ struct SettingsView: View {
     // PURPOSE: 슬라이더 조정 후 다리 길이 저장
     // ═══════════════════════════════════════
     private func saveLegLength() {
-        Task {
-            await saveLegLengthToFirestore(legLength)
-        }
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 다리 길이 Firestore 저장 및 캐시 업데이트 (공통 로직)
-    // ═══════════════════════════════════════
-    private func saveLegLengthToFirestore(_ legLengthValue: Double) async {
         guard let userId = authManager.currentUser?.uid else {
             return
         }
 
-        do {
-            // Step 1: Firestore 저장
-            try await UserService.shared.updateUserData(userId: userId, updates: [
-                "legLength": legLengthValue
-            ])
-
-            // Step 2: AuthenticationManager 캐시 업데이트
-            await MainActor.run {
-                if let userData = authManager.currentUserData {
-                    authManager.currentUserData = UserData(
-                        userId: userData.userId,
-                        username: userData.username,
-                        email: userData.email,
-                        phoneNumber: userData.phoneNumber,
-                        securityQuestion: userData.securityQuestion,
-                        securityAnswer: userData.securityAnswer,
-                        legLength: legLengthValue,
-                        createdAt: userData.createdAt
-                    )
-                }
+        Task {
+            do {
+                // UserService에서 비즈니스 로직 처리 (저장 + 캐시 업데이트)
+                try await UserService.shared.updateLegLength(
+                    userId: userId,
+                    legLength: legLength,
+                    authManager: authManager
+                )
+            } catch {
+                print("⚠️ 다리 길이 저장 실패: \(error.localizedDescription)")
             }
+        }
+    }
 
-            print("✅ 다리 길이 저장 완료: \(String(format: "%.1f", legLengthValue)) cm")
-        } catch {
-            print("⚠️ 다리 길이 저장 실패: \(error.localizedDescription)")
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 데이터 불러오기
+    // ═══════════════════════════════════════
+    private func loadCalibrationData() {
+        guard let userId = authManager.currentUser?.uid else {
+            return
+        }
+
+        Task {
+            do {
+                calibrationData = try await UserService.shared.getCalibrationData(userId: userId)
+            } catch {
+                print("캘리브레이션 데이터 조회 실패: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 데이터 저장
+    // ═══════════════════════════════════════
+    private func saveCalibrationData() {
+        guard let userId = authManager.currentUser?.uid,
+              let data = calibrationData else {
+            return
+        }
+
+        Task {
+            do {
+                try await UserService.shared.saveCalibrationData(userId: userId, calibrationData: data)
+
+                // AuthenticationManager 캐시에도 업데이트
+                await MainActor.run {
+                    if let userData = authManager.currentUserData {
+                        authManager.currentUserData = UserData(
+                            userId: userData.userId,
+                            username: userData.username,
+                            email: userData.email,
+                            phoneNumber: userData.phoneNumber,
+                            securityQuestion: userData.securityQuestion,
+                            securityAnswer: userData.securityAnswer,
+                            legLength: userData.legLength,
+                            calibrationData: data,
+                            createdAt: userData.createdAt
+                        )
+                    }
+                }
+
+                // DistanceCalculator에 캘리브레이션 데이터 적용
+                DistanceCalculator.shared.updateCalibrationData(data)
+
+                print("✅ 캘리브레이션 데이터 저장 및 적용 완료")
+            } catch {
+                print("⚠️ 캘리브레이션 데이터 저장 실패: \(error.localizedDescription)")
+            }
         }
     }
 

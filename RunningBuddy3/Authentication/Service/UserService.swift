@@ -12,6 +12,13 @@ import FirebaseAuth
  * - updateUserData(): 사용자 데이터 업데이트 👈 추후 사용예정
  * - deleteUserData(): 사용자 데이터 삭제 👈 추후 사용예정
  *
+ * Leg Length Management
+ * - updateLegLength(): 다리 길이 저장
+ *
+ * Calibration Data Management
+ * - saveCalibrationData(): 캘리브레이션 데이터 저장
+ * - getCalibrationData(): 캘리브레이션 데이터 조회
+ *
  * Username Methods
  * - checkUsernameExists(): 아이디 중복 체크
  * - getEmailByUsername(): 아이디로 이메일 조회 (로그인용)
@@ -202,6 +209,90 @@ class UserService {
         } catch {
             print("UserService: 아이디로 이메일 조회 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Leg Length Management
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 다리 길이 저장
+    // PARAMETERS:
+    //   - userId: 사용자 ID
+    //   - legLength: 다리 길이 (cm)
+    //   - authManager: AuthenticationManager (캐시 업데이트용)
+    // FUNCTIONALITY:
+    //   - Firestore 저장
+    //   - AuthenticationManager 캐시 업데이트
+    // ═══════════════════════════════════════
+    @MainActor
+    func updateLegLength(userId: String, legLength: Double, authManager: AuthenticationManager) async throws {
+        // Step 1: Firestore 저장
+        try await updateUserData(userId: userId, updates: [
+            "legLength": legLength
+        ])
+
+        // Step 2: AuthenticationManager 캐시 업데이트
+        if let userData = authManager.currentUserData {
+            authManager.currentUserData = UserData(
+                userId: userData.userId,
+                username: userData.username,
+                email: userData.email,
+                phoneNumber: userData.phoneNumber,
+                securityQuestion: userData.securityQuestion,
+                securityAnswer: userData.securityAnswer,
+                legLength: legLength,
+                calibrationData: userData.calibrationData,
+                createdAt: userData.createdAt
+            )
+        }
+
+        print("✅ 다리 길이 저장 완료: \(String(format: "%.1f", legLength)) cm")
+    }
+
+    // MARK: - Calibration Data Management
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 데이터 저장
+    // ═══════════════════════════════════════
+    func saveCalibrationData(userId: String, calibrationData: CalibrationData) async throws {
+        do {
+            try await firestore.collection(usersCollection).document(userId).updateData([
+                "calibrationData": calibrationData.toDictionary()
+            ])
+            print("UserService: 캘리브레이션 데이터 저장 성공")
+            print("   - 걸음 수: \(calibrationData.totalSteps)걸음")
+            print("   - 평균 케이던스: \(String(format: "%.1f", calibrationData.averageCadence)) SPM")
+            print("   - 평균 보폭: \(String(format: "%.2f", calibrationData.averageStepLength))m")
+        } catch {
+            print("UserService: 캘리브레이션 데이터 저장 실패 - \(error.localizedDescription)")
+            throw UserServiceError.updateFailed(error.localizedDescription)
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 데이터 조회
+    // ═══════════════════════════════════════
+    func getCalibrationData(userId: String) async throws -> CalibrationData? {
+        do {
+            let document = try await firestore.collection(usersCollection).document(userId).getDocument()
+
+            guard document.exists, let data = document.data() else {
+                print("UserService: 사용자 데이터 없음")
+                return nil
+            }
+
+            if let calibrationDict = data["calibrationData"] as? [String: Any] {
+                let calibrationData = CalibrationData.fromDictionary(calibrationDict)
+                print("UserService: 캘리브레이션 데이터 조회 성공")
+                return calibrationData
+            } else {
+                print("UserService: 캘리브레이션 데이터 없음 (측정 필요)")
+                return nil
+            }
+
+        } catch {
+            print("UserService: 캘리브레이션 데이터 조회 실패 - \(error.localizedDescription)")
+            throw UserServiceError.fetchFailed(error.localizedDescription)
         }
     }
 

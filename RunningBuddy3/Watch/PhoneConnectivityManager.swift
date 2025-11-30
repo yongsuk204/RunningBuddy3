@@ -188,6 +188,11 @@ extension PhoneConnectivityManager: WCSessionDelegate {
 
                 DispatchQueue.main.async { [weak self] in
                     self?.receivedLocation = location
+
+                    // 캘리브레이션 모드일 때 GPS 데이터 전달
+                    if StrideCalibratorService.shared.isCalibrating {
+                        StrideCalibratorService.shared.addLocation(location)
+                    }
                 }
 
                 print("📍 GPS 위치 수신: (\(String(format: "%.6f", latitude)), \(String(format: "%.6f", longitude)))")

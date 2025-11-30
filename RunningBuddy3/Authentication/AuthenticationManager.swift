@@ -37,7 +37,7 @@ class AuthenticationManager: ObservableObject {
     // Purpose: 에러 메시지 저장
     @Published var errorMessage: String = ""
 
-    // Purpose: 현재 사용자의 Firestore 데이터 캐싱
+    // Purpose: 현재 사용자의 Firestore 데이터 캐싱 👈 어디서나 이 데이터를 사용가능
     @Published var currentUserData: UserData?
 
     // MARK: - Private Properties

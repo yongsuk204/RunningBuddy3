@@ -37,7 +37,13 @@ class CadenceCalculator: ObservableObject {
     // Purpose: 현재 계산된 실시간 케이던스 (SPM - Steps Per Minute)
     @Published var currentCadence: Double = 0.0
 
+    // Purpose: 누적 총 걸음 수 (양발 기준)
+    @Published var currentSteps: Int = 0
+
     // MARK: - Private Properties
+
+    // Purpose: 감지된 피크 타임스탬프 집합 (중복 카운팅 방지)
+    private var detectedPeakTimestamps: Set<Date> = []
 
     // Purpose: 실시간 케이던스 업데이트 타이머 (5초 간격)
     private var updateTimer: Timer?
@@ -63,19 +69,41 @@ class CadenceCalculator: ObservableObject {
         stopRealtimeMonitoring()
         dataBuffer.removeAll()
         currentCadence = 0.0
+        currentSteps = 0
+        detectedPeakTimestamps.removeAll()
 
         // Step 2: 3초마다 실행되는 타이머 시작
         updateTimer = Timer.scheduledTimer(withTimeInterval: updateIntervalSeconds, repeats: true) { [weak self] _ in
             guard let self = self else { return }
 
-            // Step 3: 현재 버퍼 데이터로 케이던스 계산 및 UI 업데이트
-            let calculatedCadence = self.calculateAverageCadence(from: self.dataBuffer)
+            // Step 3: 현재 버퍼 데이터로 케이던스 계산 (걸음 수는 별도 계산)
+            let cadence = self.calculateAverageCadence(from: self.dataBuffer)
 
-            DispatchQueue.main.async {
-                self.currentCadence = calculatedCadence
+            // Step 4: 새로운 피크만 감지하여 걸음 수 증가
+            let peaks = self.detectPeaksWithCondition(data: self.dataBuffer)
+            var newPeaksCount = 0
+
+            for peakIndex in peaks {
+                let timestamp = self.dataBuffer[peakIndex].timestamp
+
+                // 이미 카운팅한 피크인지 확인
+                if !self.detectedPeakTimestamps.contains(timestamp) {
+                    self.detectedPeakTimestamps.insert(timestamp)
+                    newPeaksCount += 1
+                }
             }
 
-            print("📊 실시간 케이던스: \(String(format: "%.1f", calculatedCadence)) SPM (\(self.dataBuffer.count)개 샘플)")
+            // Step 5: 새 피크가 있으면 누적 걸음 수 증가
+            let stepIncrement = newPeaksCount * 2  // 양발 기준
+            if stepIncrement > 0 {
+                self.currentSteps += stepIncrement
+            }
+
+            DispatchQueue.main.async {
+                self.currentCadence = cadence
+            }
+
+            print("📊 실시간 케이던스: \(String(format: "%.1f", cadence)) SPM, 총 걸음: \(self.currentSteps)걸음, 증가분: \(stepIncrement)걸음 (새 피크: \(newPeaksCount), 버퍼: \(self.dataBuffer.count)개)")
         }
 
         print("▶️ 실시간 케이던스 모니터링 시작")
