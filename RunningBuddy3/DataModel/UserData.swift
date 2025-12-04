@@ -34,16 +34,11 @@ struct UserData: Codable {
     // Purpose: 보안질문 답변 (pepper + salt로 해시화되어 저장)
     let securityAnswer: String
 
-    // Purpose: 사용자 다리 길이 (cm 단위, 옵셔널 - 수동 입력 또는 수정된 값)
-    let legLength: Double?
-
-    // Purpose: 100m 캘리브레이션 데이터 (옵셔널 - 측정 완료 시 저장)
-    let calibrationData: CalibrationData?
-
     // MARK: - Initialization
 
     // Purpose: 사용자 데이터 생성 (회원가입 시에는 현재 시간, Firestore에서 읽을 때는 원본 시간 사용)
-    init(userId: String, username: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String, legLength: Double? = nil, calibrationData: CalibrationData? = nil, createdAt: Date = Date()) {
+    // NOTE: 캘리브레이션 데이터는 서브컬렉션(calibrationRecords)으로 관리됨
+    init(userId: String, username: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String, createdAt: Date = Date()) {
         self.userId = userId
         self.username = username
         self.email = email
@@ -51,8 +46,6 @@ struct UserData: Codable {
         self.createdAt = createdAt
         self.securityQuestion = securityQuestion
         self.securityAnswer = securityAnswer
-        self.legLength = legLength
-        self.calibrationData = calibrationData
     }
 
 
@@ -60,7 +53,7 @@ struct UserData: Codable {
 
     // Purpose: Firestore 저장을 위한 딕셔너리 변환
     func toDictionary() -> [String: Any] {
-        var dict: [String: Any] = [
+        return [
             "userId": userId,
             "username": username,
             "email": email,
@@ -69,18 +62,6 @@ struct UserData: Codable {
             "securityQuestion": securityQuestion,
             "securityAnswer": securityAnswer
         ]
-
-        // 다리 길이가 있으면 추가
-        if let legLength = legLength {
-            dict["legLength"] = legLength
-        }
-
-        // 캘리브레이션 데이터가 있으면 추가
-        if let calibrationData = calibrationData {
-            dict["calibrationData"] = calibrationData.toDictionary()
-        }
-
-        return dict
     }
 
     // Purpose: Firestore 문서에서 UserData 객체 생성
@@ -98,15 +79,6 @@ struct UserData: Codable {
         // Purpose: Firestore timestamp를 Date로 변환하여 원본 생성일시 보존
         let originalCreatedAt = timestamp.dateValue()
 
-        // Purpose: 다리 길이는 옵셔널 (없을 수 있음)
-        let legLength = data["legLength"] as? Double
-
-        // Purpose: 캘리브레이션 데이터는 옵셔널 (측정 완료 시에만 존재)
-        var calibrationData: CalibrationData? = nil
-        if let calibrationDict = data["calibrationData"] as? [String: Any] {
-            calibrationData = CalibrationData.fromDictionary(calibrationDict)
-        }
-
         let userData = UserData(
             userId: userId,
             username: username,
@@ -114,8 +86,6 @@ struct UserData: Codable {
             phoneNumber: phoneNumber,
             securityQuestion: securityQuestion,
             securityAnswer: securityAnswer,
-            legLength: legLength,
-            calibrationData: calibrationData,
             createdAt: originalCreatedAt
         )
 
