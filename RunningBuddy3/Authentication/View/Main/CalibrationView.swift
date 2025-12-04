@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 // Purpose: 100m 캘리브레이션 측정 화면
 struct CalibrationView: View {
@@ -8,19 +9,26 @@ struct CalibrationView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var calibrator = StrideCalibratorService.shared
     @StateObject private var themeManager = ThemeManager.shared
-    
-    // 👈 settingview.loadCalibrationData() 함수를 통해서 가져온 calibrationData
-    // 👈SettingsView.swift 54번줄에 $calibrationData 통해서 전달함
-    @Binding var calibrationData: CalibrationData? 
+    @StateObject private var connectivityManager = PhoneConnectivityManager.shared
 
-    // 👈 SettingsView.saveCalibrationData() 실행
-    // 👈SettingsView.swift 54번줄에 onsave: 를 통해서 부모뷰의 함수를 사용할 수 있음
-    let onSave: () -> Void 
+    // 👈 측정 완료된 calibrationData
+    @Binding var calibrationData: CalibrationData?
+
+    // 👈 저장 완료 후 콜백 (부모 뷰 새로고침용)
+    let onSaveComplete: () -> Void 
 
     // State Properties
     @State private var showingCompletionAlert = false
     @State private var showingCancelAlert = false
     @State private var autoCompleteObserver: NSObjectProtocol?
+    @State private var isSaving = false
+
+    // GPS Warmup State
+    @State private var isGPSWarming = false
+    @State private var isGPSReady = false
+    @State private var gpsAccuracyHistory: [Double] = []  // 3회 연속 정확도 체크
+    @State private var countdownSeconds: Int? = nil
+    @State private var countdownTimer: Timer? = nil
 
     // MARK: - Body
 
@@ -54,11 +62,29 @@ struct CalibrationView: View {
                 buttonSection
             }
             .padding()
+
+            // 카운트다운 오버레이 (전체 화면)
+            if let seconds = countdownSeconds {
+                ZStack {
+                    Color.black.opacity(0.7)
+                        .ignoresSafeArea()
+
+                    VStack(spacing: 16) {
+                        Text("\(seconds)")
+                            .font(.system(size: 120, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+
+                        Text("준비...")
+                            .font(.title2)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+                .transition(.opacity)
+            }
         }
         .alert("측정 완료", isPresented: $showingCompletionAlert) {
             Button("저장", role: .none) {
-                onSave()
-                dismiss()
+                saveCalibrationData()
             }
             Button("재측정", role: .cancel) {
                 calibrator.resetCalibration()
@@ -85,7 +111,23 @@ struct CalibrationView: View {
             Text("진행 중인 측정을 취소하시겠습니까?")
         }
         .onAppear {
-            // 자동 완료 알림 구독
+            // Step 1: Watch 연결 확인
+            guard connectivityManager.isWatchReachable else {
+                // GPS 워밍업 불가 상태로 설정
+                isGPSWarming = false
+                isGPSReady = false
+                print("⚠️ Apple Watch가 연결되지 않았습니다")
+                return
+            }
+
+            // Step 2: Watch GPS 및 센서 활성화 (워밍업용)
+            connectivityManager.sendCommand(.start)
+            print("📡 GPS 워밍업을 위해 Watch 센서 활성화")
+
+            // Step 3: GPS 워밍업 시작
+            startGPSWarmup()
+
+            // Step 4: 자동 완료 알림 구독
             autoCompleteObserver = NotificationCenter.default.addObserver(
                 forName: .calibrationAutoComplete,
                 object: nil,
@@ -94,11 +136,41 @@ struct CalibrationView: View {
                 handleStop()
             }
         }
+        .onChange(of: connectivityManager.receivedLocation) { oldValue, newValue in
+            handleGPSAccuracyChange(newValue)
+        }
+        .onChange(of: connectivityManager.isWatchReachable) { oldValue, newValue in
+            // Watch 연결 끊김 감지 (워밍업 중일 때만)
+            if isGPSWarming && !newValue {
+                isGPSWarming = false
+                isGPSReady = false
+                gpsAccuracyHistory.removeAll()
+                print("⚠️ Apple Watch 연결이 끊어졌습니다")
+            }
+        }
         .onDisappear {
+            // Watch 센서 중지 (배터리 절약)
+            if connectivityManager.isWatchReachable {
+                connectivityManager.sendCommand(.stop)
+                print("⏹️ CalibrationView 종료 - Watch 센서 중지")
+            }
+
+            // 카운트다운 타이머 정리
+            countdownTimer?.invalidate()
+            countdownTimer = nil
+            countdownSeconds = nil
+
+            // GPS 워밍업 상태 정리
+            isGPSWarming = false
+            isGPSReady = false
+            gpsAccuracyHistory.removeAll()
+
             // 알림 구독 해제
             if let observer = autoCompleteObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
+
+            print("🔄 CalibrationView 종료 - GPS 워밍업 정리")
         }
     }
 
@@ -126,11 +198,14 @@ struct CalibrationView: View {
     // ═══════════════════════════════════════
     private var instructionSection: some View {
         VStack(spacing: 24) {
+            // GPS 상태 카드
+            gpsStatusCard
+
             VStack(alignment: .leading, spacing: 16) {
                 instructionRow(number: "1", text: "야외 GPS 신호가 잘 잡히는 곳으로 이동하세요")
-                instructionRow(number: "2", text: "시작 버튼을 누르고 달리기를 시작하세요")
-                instructionRow(number: "3", text: "GPS가 100m를 자동으로 측정합니다")
-                instructionRow(number: "4", text: "100m 도달 시 자동으로 종료됩니다")
+                instructionRow(number: "2", text: "GPS 신호가 안정되면 시작 버튼이 활성화됩니다")
+                instructionRow(number: "3", text: "시작 버튼을 누르고 달리기를 시작하세요")
+                instructionRow(number: "4", text: "GPS가 100m를 자동으로 측정합니다")
             }
             .padding(24)
             .background(
@@ -207,51 +282,12 @@ struct CalibrationView: View {
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
             }
-
-            // 실시간 데이터
-            HStack(spacing: 16) {
-                // 걸음 수
-                VStack(spacing: 8) {
-                    Image(systemName: "figure.walk")
-                        .font(.title2)
-                        .foregroundColor(.white)
-
-                    Text("\(calibrator.currentSteps)")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-
-                    Text("걸음")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.ultraThinMaterial)
-                )
-
-                // 케이던스
-                VStack(spacing: 8) {
-                    Image(systemName: "speedometer")
-                        .font(.title2)
-                        .foregroundColor(.white)
-
-                    Text(String(format: "%.0f", calibrator.currentCadence))
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-
-                    Text("SPM")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.ultraThinMaterial)
-                )
-            }
+            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.ultraThinMaterial)
+            )
         }
     }
 
@@ -313,7 +349,7 @@ struct CalibrationView: View {
             } else {
                 // 시작 버튼
                 Button {
-                    calibrator.startCalibration()
+                    startCountdown()
                 } label: {
                     HStack {
                         Image(systemName: "play.fill")
@@ -322,10 +358,11 @@ struct CalibrationView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.green)
+                    .background(isGPSReady ? Color.green : Color.gray.opacity(0.6))
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }
+                .disabled(!isGPSReady)
 
                 // 닫기 버튼
                 Button {
@@ -339,15 +376,190 @@ struct CalibrationView: View {
         .padding(.bottom, 20)
     }
 
+    // MARK: - GPS Status Card
+    // ═══════════════════════════════════════
+    // PURPOSE: GPS 워밍업 상태 카드
+    // ═══════════════════════════════════════
+    private var gpsStatusCard: some View {
+        HStack(spacing: DesignSystem.Spacing.sm) {
+            // 아이콘
+            Image(systemName: isGPSReady ? "location.fill" : (isGPSWarming ? "location.fill" : "location.slash"))
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(isGPSReady ? DesignSystem.Colors.success : (isGPSWarming ? DesignSystem.Colors.warning : DesignSystem.Colors.neutral))
+
+            VStack(alignment: .leading, spacing: 4) {
+                // 상태 텍스트
+                Text(isGPSReady ? "GPS 준비 완료" : (isGPSWarming ? "GPS 신호 수신 중..." : "GPS 대기 중"))
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                // 상세 정보
+                if isGPSWarming {
+                    Text("\(gpsAccuracyHistory.count)/3 회 신호 수신")
+                        .font(DesignSystem.Typography.caption2)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                } else if isGPSReady {
+                    Text("측정 시작 가능")
+                        .font(DesignSystem.Typography.caption2)
+                        .foregroundColor(DesignSystem.Colors.success)
+                }
+            }
+
+            Spacer()
+
+            // 상태 인디케이터
+            if isGPSWarming {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.warning))
+            } else {
+                Circle()
+                    .fill(isGPSReady ? DesignSystem.Colors.success : DesignSystem.Colors.neutral)
+                    .frame(
+                        width: DesignSystem.Layout.statusIndicatorSize * 1.5,
+                        height: DesignSystem.Layout.statusIndicatorSize * 1.5
+                    )
+            }
+        }
+        .padding(DesignSystem.Spacing.md)
+        .overlayCardStyle(
+            cornerRadius: DesignSystem.CornerRadius.medium,
+            shadow: DesignSystem.Shadow.card
+        )
+    }
+
     // MARK: - Helper Methods
 
     // ═══════════════════════════════════════
+    // PURPOSE: GPS 워밍업 시작
+    // FUNCTIONALITY:
+    //   - GPS 워밍업 상태 활성화
+    //   - 정확도 히스토리 초기화
+    // ═══════════════════════════════════════
+    private func startGPSWarmup() {
+        isGPSWarming = true
+        isGPSReady = false
+        gpsAccuracyHistory.removeAll()
+        print("🔄 GPS 워밍업 시작...")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: GPS 정확도 변화 감지 및 준비 상태 업데이트
+    // FUNCTIONALITY:
+    //   - 3회 연속 horizontalAccuracy < 20m 확인
+    //   - GPS 준비 완료 시 버튼 활성화
+    // ═══════════════════════════════════════
+    private func handleGPSAccuracyChange(_ location: CLLocation?) {
+        guard isGPSWarming, !isGPSReady else { return }
+
+        guard let location = location,
+              location.horizontalAccuracy > 0,
+              location.horizontalAccuracy < 20.0 else {
+            // 정확도 불충분 - 히스토리 초기화
+            gpsAccuracyHistory.removeAll()
+            return
+        }
+
+        // 정확도 히스토리에 추가
+        gpsAccuracyHistory.append(location.horizontalAccuracy)
+
+        // 3회 연속 좋은 신호 확인
+        if gpsAccuracyHistory.count >= 3 {
+            isGPSReady = true
+            isGPSWarming = false
+            print("✅ GPS 준비 완료! (연속 3회 정확도: \(gpsAccuracyHistory.map { String(format: "%.1fm", $0) }.joined(separator: ", ")))")
+        } else {
+            print("📡 GPS 워밍업 중... (\(gpsAccuracyHistory.count)/3)")
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 3초 카운트다운 시작
+    // FUNCTIONALITY:
+    //   - 1초마다 카운트 감소
+    //   - 0에 도달하면 측정 시작
+    // ═══════════════════════════════════════
+    private func startCountdown() {
+        guard isGPSReady else {
+            print("⚠️ GPS가 준비되지 않았습니다")
+            return
+        }
+
+        countdownSeconds = 3
+
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            if let seconds = countdownSeconds {
+                if seconds > 1 {
+                    // 카운트다운 계속
+                    countdownSeconds = seconds - 1
+                } else {
+                    // 카운트다운 완료 - 측정 시작
+                    countdownTimer?.invalidate()
+                    countdownTimer = nil
+                    countdownSeconds = nil
+                    startCalibrationMeasurement()
+                }
+            }
+        }
+
+        print("⏱️ 3초 카운트다운 시작")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 측정 실제 시작
+    // FUNCTIONALITY:
+    //   - StrideCalibratorService 측정 시작 (Watch는 이미 .onAppear에서 활성화됨)
+    // NOTE: Watch GPS/sensors already activated in .onAppear for warmup
+    // ═══════════════════════════════════════
+    private func startCalibrationMeasurement() {
+        // Step 1: StrideCalibratorService 측정 시작 (tempDistanceCalculator 사용)
+        calibrator.startCalibration()
+
+        print("▶️ 캘리브레이션 측정 시작 (Watch 이미 활성화됨, tempDistanceCalculator 사용)")
+    }
+
+    // ═══════════════════════════════════════
     // PURPOSE: 측정 종료 처리
+    // FUNCTIONALITY:
+    //   - Watch에 측정 중지 명령 전송
+    //   - 캘리브레이션 결과 저장
     // ═══════════════════════════════════════
     private func handleStop() {
+        // Step 1: Watch에 측정 중지 명령 전송
+        connectivityManager.sendCommand(.stop)
+
+        // Step 2: 캘리브레이션 결과 처리
         if let result = calibrator.stopCalibration() {
             calibrationData = result
             showingCompletionAlert = true
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 데이터 저장 (Firestore)
+    // FUNCTIONALITY:
+    //   - StrideCalibratorService를 통해 Firestore 저장
+    //   - 저장 완료 후 부모 뷰 콜백 실행
+    //   - 저장 완료 후 dismiss
+    // ═══════════════════════════════════════
+    private func saveCalibrationData() {
+        guard let data = calibrationData else {
+            print("⚠️ CalibrationView: calibrationData가 nil입니다")
+            return
+        }
+
+        isSaving = true
+
+        Task {
+            // StrideCalibratorService를 통해 Firestore 저장 (중복 저장 방지)
+            await calibrator.addCalibrationRecord(data)
+
+            print("✅ CalibrationView: 캘리브레이션 데이터 저장 완료")
+
+            await MainActor.run {
+                isSaving = false
+                onSaveComplete()  // 부모 뷰 콜백 (히스토리 새로고침 등)
+                dismiss()
+            }
         }
     }
 

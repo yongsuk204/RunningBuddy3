@@ -128,6 +128,51 @@ struct SensorDataView: View {
     // MARK: - Body
 
     var body: some View {
+        mainContent
+            .navigationTitle("실시간 센서")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    workoutControlButton
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    recordButton
+                }
+            }
+            .onChange(of: connectivityManager.receivedSensorData) { oldValue, newValue in
+                handleSensorDataChange(newValue)
+            }
+            .onChange(of: connectivityManager.receivedLocation) { oldValue, newValue in
+                handleLocationChange(newValue)
+            }
+            .onChange(of: locations.count) { oldValue, newValue in
+                updateCameraPosition()
+            }
+            .onChange(of: headingManager.currentHeading) { oldValue, newValue in
+                handleHeadingChange()
+            }
+            .sheet(isPresented: $showingShareSheet) {
+                if let url = csvFileURL {
+                    ShareSheet(items: [url])
+                }
+            }
+            .alert("알림", isPresented: $showingAlert) {
+                Button("확인", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
+            .onAppear {
+                handleViewAppear()
+            }
+            .onDisappear {
+                handleViewDisappear()
+            }
+    }
+
+    private var mainContent: some View {
         ZStack {
             // 배경 그라데이션
             Color.clear
@@ -142,56 +187,6 @@ struct SensorDataView: View {
 
             // 수치 오버레이
             metricsOverlay
-        }
-        .navigationTitle("실시간 센서")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                workoutControlButton
-            }
-
-            ToolbarItem(placement: .topBarTrailing) {
-                recordButton
-            }
-        }
-        .onChange(of: connectivityManager.receivedSensorData) { oldValue, newValue in
-            if let data = newValue {
-                exporter.addSensorData(data)
-                cadenceCalculator.addSensorData(data)
-            }
-        }
-        .onChange(of: connectivityManager.receivedLocation) { oldValue, newValue in
-            if let location = newValue {
-                distanceCalculator.addLocation(location)
-            }
-        }
-        .onChange(of: locations.count) { oldValue, newValue in
-            updateCameraPosition()
-        }
-        .onChange(of: headingManager.currentHeading) { oldValue, newValue in
-            // 방향 모드일 때만 heading 변화에 따라 카메라 업데이트
-            if mapMode == .heading {
-                updateCameraPosition()
-            }
-        }
-        .sheet(isPresented: $showingShareSheet) {
-            if let url = csvFileURL {
-                ShareSheet(items: [url])
-            }
-        }
-        .alert("알림", isPresented: $showingAlert) {
-            Button("확인", role: .cancel) { }
-        } message: {
-            Text(alertMessage)
-        }
-        .onAppear {
-            print("📱 SensorDataView 진입 - Watch 연결 상태: \(connectivityManager.isWatchReachable)")
-        }
-        .onDisappear {
-            // 뷰가 사라질 때 heading 업데이트 중지
-            headingManager.stopUpdatingHeading()
         }
     }
 
@@ -293,6 +288,39 @@ struct SensorDataView: View {
             }
 
             Spacer()
+
+            // 하단: 보폭 추정 거리 카드 (간단한 버전)
+            HStack(spacing: 12) {
+                Image(systemName: "figure.walk")
+                    .font(.title2)
+                    .foregroundColor(.white)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("보폭 추정 거리")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+
+                    if !StrideCalibratorService.shared.calibrationRecords.isEmpty {
+                        Text(String(format: "%.2f km", distanceCalculator.strideBasedDistance / 1000.0))
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    } else {
+                        Text("캘리브레이션 필요")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                    .fill(.ultraThinMaterial)
+            )
+            .padding(.horizontal)
+            .padding(.bottom, 8)
 
             // 하단: 통합 수치 카드
             UnifiedMetricsCard(
@@ -468,6 +496,38 @@ struct SensorDataView: View {
             alertMessage = "CSV 파일 저장 실패: \(error.localizedDescription)"
             showingAlert = true
         }
+    }
+
+    // MARK: - Event Handlers
+
+    private func handleSensorDataChange(_ data: SensorData?) {
+        if let data = data {
+            exporter.addSensorData(data)
+            cadenceCalculator.addSensorData(data)
+        }
+    }
+
+    private func handleLocationChange(_ location: CLLocation?) {
+        if let location = location {
+            distanceCalculator.addLocation(location)
+        }
+    }
+
+    private func handleHeadingChange() {
+        // 방향 모드일 때만 heading 변화에 따라 카메라 업데이트
+        if mapMode == .heading {
+            updateCameraPosition()
+        }
+    }
+
+    private func handleViewAppear() {
+        print("📱 SensorDataView 진입 - Watch 연결 상태: \(connectivityManager.isWatchReachable)")
+        // 캘리브레이션 모델은 MainAppView에서 자동 로드됨
+    }
+
+    private func handleViewDisappear() {
+        // 뷰가 사라질 때 heading 업데이트 중지
+        headingManager.stopUpdatingHeading()
     }
 }
 

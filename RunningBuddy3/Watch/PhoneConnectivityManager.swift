@@ -189,10 +189,8 @@ extension PhoneConnectivityManager: WCSessionDelegate {
                 DispatchQueue.main.async { [weak self] in
                     self?.receivedLocation = location
 
-                    // 캘리브레이션 모드일 때 GPS 데이터 전달
-                    if StrideCalibratorService.shared.isCalibrating {
-                        StrideCalibratorService.shared.addLocation(location)
-                    }
+                    // DistanceCalculator.shared로 GPS 위치 전달 (워밍업 + 캘리브레이션 공통)
+                    DistanceCalculator.shared.addLocation(location)
                 }
 
                 print("📍 GPS 위치 수신: (\(String(format: "%.6f", latitude)), \(String(format: "%.6f", longitude)))")
@@ -211,6 +209,9 @@ extension PhoneConnectivityManager: WCSessionDelegate {
             self?.receivedSensorData = sensorData
             self?.lastUpdateTime = Date()
         }
+
+        // Step 4: 캘리브레이션 측정 중이면 센서 데이터 수집
+        StrideCalibratorService.shared.addSensorData(sensorData)
 
         // 디버그 로그 (주석처리 - 너무 빈번한 출력 방지)
 //        if let heartRate = sensorData.heartRate {

@@ -2,12 +2,16 @@ import Foundation
 import CoreLocation
 import Combine
 
-// Purpose: GPS 기반 거리 계산 관리자
+// Purpose: GPS 기반 거리 계산 및 동적 보폭 추정 거리 관리자
 // MARK: - 함수 목록
 /*
  * GPS Distance Calculation
  * - addLocation(_:): 새 위치 추가 및 GPS 거리 계산
  * - resetDistance(): 거리 초기화
+ *
+ * Stride-Based Distance Estimation (Dynamic)
+ * - setStrideModel(_:fixedStride:): 선형 회귀 모델 또는 고정 보폭 설정
+ * - updateSteps(_:currentCadence:): 걸음 수 및 케이던스로 동적 보폭 계산
  */
 
 class DistanceCalculator: ObservableObject {
@@ -18,8 +22,11 @@ class DistanceCalculator: ObservableObject {
 
     // MARK: - Published Properties
 
-    // Purpose: 누적 이동거리 (미터 단위)
+    // Purpose: 누적 이동거리 (미터 단위) - GPS 기반
     @Published var totalDistance: Double = 0.0
+
+    // Purpose: 보폭 추정 거리 (미터 단위) - 걸음 수 × 평균 보폭
+    @Published var strideBasedDistance: Double = 0.0
 
     // ════════════════════════════════════════════════════════════════════
     // 🔮 [FUTURE] 페이스 표시 기능용 (향후 사용 예정)
@@ -41,6 +48,17 @@ class DistanceCalculator: ObservableObject {
 
     // Purpose: 최대 허용 속도 (m/s) - 15 m/s = 54 km/h
     private let maxRealisticSpeed: Double = 15.0
+
+    // MARK: - Private Properties (Stride-Based)
+
+    // Purpose: 선형 회귀 모델 (보폭 = α * 케이던스 + β)
+    private var strideModel: StrideModel?
+
+    // Purpose: 고정 보폭 (모델 없을 때 사용, 미터)
+    private var fixedStride: Double?
+
+    // Purpose: 이전 걸음 수 (증가분 계산용)
+    private var previousSteps: Int = 0
 
     // MARK: - Initialization
 
@@ -107,11 +125,85 @@ class DistanceCalculator: ObservableObject {
     // ═══════════════════════════════════════
     func resetDistance() {
         totalDistance = 0.0
+        strideBasedDistance = 0.0
         previousLocation = nil
         currentSpeed = 0.0
         locations.removeAll()
+        previousSteps = 0
 
-        print("🔄 거리 계산 초기화 (경로 데이터 삭제)")
+        print("🔄 거리 계산 초기화")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 선형 회귀 모델 또는 고정 보폭 설정
+    // PARAMETERS:
+    //   - model: 선형 회귀 모델 (보폭 = α * 케이던스 + β)
+    //   - fixedStride: 고정 보폭 (모델 없을 때 사용)
+    // NOTE: 둘 중 하나만 설정 (model 우선)
+    // ═══════════════════════════════════════
+    func setStrideModel(_ model: StrideModel?, fixedStride: Double?) {
+        self.strideModel = model
+        self.fixedStride = fixedStride
+
+        if let model = model {
+            print("✅ 동적 보폭 모델 설정: stride = \(String(format: "%.6f", model.alpha)) × cadence + \(String(format: "%.3f", model.beta))")
+            print("   📊 R² = \(String(format: "%.3f", model.rSquared))")
+        } else if let fixed = fixedStride {
+            print("✅ 고정 보폭 설정: \(String(format: "%.3f", fixed))m")
+        } else {
+            print("ℹ️ 보폭 추정 비활성화 (캘리브레이션 필요)")
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 걸음 수 및 케이던스로 동적 보폭 기반 거리 계산
+    // PARAMETERS:
+    //   - currentSteps: 현재 누적 걸음 수
+    //   - currentCadence: 현재 케이던스 (spm)
+    // FUNCTIONALITY:
+    //   1. 걸음 수 증가분 계산
+    //   2. 현재 케이던스로 보폭 예측 (선형 모델 또는 고정값)
+    //   3. 증가분 × 예측 보폭 = 추가 거리
+    //   4. 보폭 추정 거리 누적
+    // ═══════════════════════════════════════
+    func updateSteps(_ currentSteps: Int, currentCadence: Double) {
+        // Step 1: 모델 또는 고정 보폭 확인
+        guard strideModel != nil || fixedStride != nil else { return }
+
+        // Step 2: 걸음 수 증가분 계산
+        let stepIncrement = currentSteps - previousSteps
+        guard stepIncrement > 0 else { return }
+
+        // Step 3: 현재 보폭 예측
+        let predictedStride: Double
+        if let model = strideModel {
+            // 동적 보폭: stride = α * cadence + β
+            predictedStride = model.predictStride(cadence: currentCadence)
+        } else if let fixed = fixedStride {
+            // 고정 보폭
+            predictedStride = fixed
+        } else {
+            return
+        }
+
+        // Step 4: 추가 거리 계산
+        let addedDistance = Double(stepIncrement) * predictedStride
+
+        // Step 5: 누적 거리 업데이트
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.strideBasedDistance += addedDistance
+        }
+
+        previousSteps = currentSteps
+
+        // 로그 출력
+        if strideModel != nil {
+            print("👣 동적 보폭 추정: +\(stepIncrement)걸음 × \(String(format: "%.3f", predictedStride))m (케이던스 \(String(format: "%.1f", currentCadence))) = +\(String(format: "%.1f", addedDistance))m")
+        } else {
+            print("👣 고정 보폭 추정: +\(stepIncrement)걸음 × \(String(format: "%.3f", predictedStride))m = +\(String(format: "%.1f", addedDistance))m")
+        }
+        print("   총 보폭 거리: \(String(format: "%.2f", strideBasedDistance / 1000))km")
     }
 
     // MARK: - Private Methods

@@ -253,6 +253,9 @@ class AuthenticationManager: ObservableObject {
 
     // ═══════════════════════════════════════
     // PURPOSE: 사용자 데이터 로드 및 캐싱
+    // FUNCTIONALITY:
+    //   1. Firestore에서 사용자 데이터 로드
+    //   2. 캘리브레이션 히스토리 로드 (보폭 모델 계산)
     // ═══════════════════════════════════════
     private func loadUserData(userId: String) async {
         do {
@@ -261,11 +264,10 @@ class AuthenticationManager: ObservableObject {
                 self.currentUserData = userData
             }
 
-            if let legLength = userData?.legLength {
-                print("✅ 사용자 데이터 로드 완료 (다리 길이: \(String(format: "%.1f", legLength)) cm)")
-            } else {
-                print("✅ 사용자 데이터 로드 완료 (다리 길이 미설정)")
-            }
+            print("✅ 사용자 데이터 로드 완료")
+
+            // 캘리브레이션 히스토리 로드 (선형 회귀 모델 계산)
+            await StrideCalibratorService.shared.loadCalibrationHistory()
         } catch {
             print("⚠️ 사용자 데이터 로드 실패: \(error.localizedDescription)")
         }

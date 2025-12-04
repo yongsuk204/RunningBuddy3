@@ -97,6 +97,9 @@ class CadenceCalculator: ObservableObject {
             let stepIncrement = newPeaksCount * 2  // 양발 기준
             if stepIncrement > 0 {
                 self.currentSteps += stepIncrement
+
+                // 보폭 기반 거리 업데이트 (동적 보폭: 케이던스 전달)
+                DistanceCalculator.shared.updateSteps(self.currentSteps, currentCadence: cadence)
             }
 
             DispatchQueue.main.async {
@@ -179,8 +182,9 @@ class CadenceCalculator: ObservableObject {
     // ═══════════════════════════════════════
     // PURPOSE: 입각기 초반 피크 검출 (상태 머신: 양수 → 첫 음수만)
     // RETURNS: 피크 인덱스 배열
+    // NOTE: StrideCalibratorService에서도 사용 (걸음 수 계산)
     // ═══════════════════════════════════════
-    private func detectPeaksWithCondition(data: [SensorData]) -> [Int] {
+    func detectPeaksWithCondition(data: [SensorData]) -> [Int] {
         var peaks: [Int] = []
 
         enum DetectionState {

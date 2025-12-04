@@ -25,6 +25,9 @@ struct CalibrationData: Codable {
     // Purpose: 100m 측정 소요 시간 (초 단위)
     let timeSeconds: Double
 
+    // Purpose: 평균 보폭 (미터 단위, Firestore 저장용 stored property)
+    let averageStepLength: Double
+
     // Purpose: 캘리브레이션 측정 날짜
     let measuredAt: Date
 
@@ -35,35 +38,31 @@ struct CalibrationData: Codable {
         self.averageCadence = averageCadence
         self.timeSeconds = timeSeconds
         self.measuredAt = measuredAt
-    }
 
-    // MARK: - Computed Properties
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 평균 보폭 계산 (미터 단위)
-    // FORMULA: Step Length = 100m ÷ Total Steps
-    // ═══════════════════════════════════════
-    var averageStepLength: Double {
-        guard totalSteps > 0 else { return 0.0 }
-        return 100.0 / Double(totalSteps)
+        // averageStepLength 계산 후 저장
+        self.averageStepLength = totalSteps > 0 ? 100.0 / Double(totalSteps) : 0.0
     }
 
     // MARK: - Firestore Conversion
 
     // ═══════════════════════════════════════
     // PURPOSE: Firestore 저장을 위한 딕셔너리 변환
+    // NOTE: averageStepLength를 명시적으로 저장 (선형회귀 모델용)
     // ═══════════════════════════════════════
-    func toDictionary() -> [String: Any] {
+    func toDictionary(userId: String) -> [String: Any] {
         return [
+            "userId": userId,
             "totalSteps": totalSteps,
             "averageCadence": averageCadence,
             "timeSeconds": timeSeconds,
+            "averageStepLength": averageStepLength,
             "measuredAt": Timestamp(date: measuredAt)
         ]
     }
 
     // ═══════════════════════════════════════
     // PURPOSE: Firestore 문서에서 CalibrationData 객체 생성
+    // NOTE: averageStepLength는 stored property로 복원
     // ═══════════════════════════════════════
     static func fromDictionary(_ data: [String: Any]) -> CalibrationData? {
         guard let totalSteps = data["totalSteps"] as? Int,

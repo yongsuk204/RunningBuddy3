@@ -12,12 +12,12 @@ import FirebaseAuth
  * - updateUserData(): 사용자 데이터 업데이트 👈 추후 사용예정
  * - deleteUserData(): 사용자 데이터 삭제 👈 추후 사용예정
  *
- * Leg Length Management
- * - updateLegLength(): 다리 길이 저장
- *
- * Calibration Data Management
- * - saveCalibrationData(): 캘리브레이션 데이터 저장
- * - getCalibrationData(): 캘리브레이션 데이터 조회
+ * Calibration History Management
+ * - saveCalibrationRecord(): 새 캘리브레이션 기록 추가 (subcollection)
+ * - loadCalibrationRecords(): 모든 캘리브레이션 기록 로드
+ * - deleteCalibrationRecord(): 캘리브레이션 기록 삭제
+ * - saveStrideModel(): 선형 회귀 모델 저장
+ * - loadStrideModel(): 선형 회귀 모델 로드
  *
  * Username Methods
  * - checkUsernameExists(): 아이디 중복 체크
@@ -212,88 +212,142 @@ class UserService {
         }
     }
 
-    // MARK: - Leg Length Management
+    // MARK: - Calibration History Management
 
     // ═══════════════════════════════════════
-    // PURPOSE: 다리 길이 저장
+    // PURPOSE: 새 캘리브레이션 기록 추가 (루트 컬렉션)
     // PARAMETERS:
-    //   - userId: 사용자 ID
-    //   - legLength: 다리 길이 (cm)
-    //   - authManager: AuthenticationManager (캐시 업데이트용)
+    //   - record: 새 캘리브레이션 데이터
     // FUNCTIONALITY:
-    //   - Firestore 저장
-    //   - AuthenticationManager 캐시 업데이트
+    //   - calibrationRecords/{userId}_{timestamp} 루트 컬렉션에 저장
+    //   - averageStepLength를 명시적으로 저장 (선형회귀 모델용)
     // ═══════════════════════════════════════
-    @MainActor
-    func updateLegLength(userId: String, legLength: Double, authManager: AuthenticationManager) async throws {
-        // Step 1: Firestore 저장
-        try await updateUserData(userId: userId, updates: [
-            "legLength": legLength
-        ])
-
-        // Step 2: AuthenticationManager 캐시 업데이트
-        if let userData = authManager.currentUserData {
-            authManager.currentUserData = UserData(
-                userId: userData.userId,
-                username: userData.username,
-                email: userData.email,
-                phoneNumber: userData.phoneNumber,
-                securityQuestion: userData.securityQuestion,
-                securityAnswer: userData.securityAnswer,
-                legLength: legLength,
-                calibrationData: userData.calibrationData,
-                createdAt: userData.createdAt
-            )
+    func saveCalibrationRecord(_ record: CalibrationData) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw UserServiceError.notLoggedIn
         }
 
-        print("✅ 다리 길이 저장 완료: \(String(format: "%.1f", legLength)) cm")
-    }
+        let timestamp = String(record.measuredAt.timeIntervalSince1970)
+        let documentId = "\(userId)_\(timestamp)"
 
-    // MARK: - Calibration Data Management
+        let documentRef = firestore
+            .collection("calibrationRecords")
+            .document(documentId)
 
-    // ═══════════════════════════════════════
-    // PURPOSE: 캘리브레이션 데이터 저장
-    // ═══════════════════════════════════════
-    func saveCalibrationData(userId: String, calibrationData: CalibrationData) async throws {
-        do {
-            try await firestore.collection(usersCollection).document(userId).updateData([
-                "calibrationData": calibrationData.toDictionary()
-            ])
-            print("UserService: 캘리브레이션 데이터 저장 성공")
-            print("   - 걸음 수: \(calibrationData.totalSteps)걸음")
-            print("   - 평균 케이던스: \(String(format: "%.1f", calibrationData.averageCadence)) SPM")
-            print("   - 평균 보폭: \(String(format: "%.2f", calibrationData.averageStepLength))m")
-        } catch {
-            print("UserService: 캘리브레이션 데이터 저장 실패 - \(error.localizedDescription)")
-            throw UserServiceError.updateFailed(error.localizedDescription)
-        }
+        try await documentRef.setData(record.toDictionary(userId: userId))
+        print("✅ UserService: 캘리브레이션 기록 저장 완료 (documentId: \(documentId))")
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 캘리브레이션 데이터 조회
+    // PURPOSE: 모든 캘리브레이션 기록 로드
+    // RETURNS: 캘리브레이션 기록 배열 (시간순)
+    // FUNCTIONALITY:
+    //   - calibrationRecords 루트 컬렉션에서 userId로 필터링
     // ═══════════════════════════════════════
-    func getCalibrationData(userId: String) async throws -> CalibrationData? {
-        do {
-            let document = try await firestore.collection(usersCollection).document(userId).getDocument()
-
-            guard document.exists, let data = document.data() else {
-                print("UserService: 사용자 데이터 없음")
-                return nil
-            }
-
-            if let calibrationDict = data["calibrationData"] as? [String: Any] {
-                let calibrationData = CalibrationData.fromDictionary(calibrationDict)
-                print("UserService: 캘리브레이션 데이터 조회 성공")
-                return calibrationData
-            } else {
-                print("UserService: 캘리브레이션 데이터 없음 (측정 필요)")
-                return nil
-            }
-
-        } catch {
-            print("UserService: 캘리브레이션 데이터 조회 실패 - \(error.localizedDescription)")
-            throw UserServiceError.fetchFailed(error.localizedDescription)
+    func loadCalibrationRecords() async throws -> [CalibrationData] {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw UserServiceError.notLoggedIn
         }
+
+        let snapshot = try await firestore
+            .collection("calibrationRecords")
+            .whereField("userId", isEqualTo: userId)
+            .getDocuments()
+
+        let records = snapshot.documents.compactMap { doc -> CalibrationData? in
+            CalibrationData.fromDictionary(doc.data())
+        }
+
+        print("✅ UserService: 캘리브레이션 기록 로드 완료 (\(records.count)개)")
+        return records
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 기록 삭제
+    // PARAMETERS:
+    //   - record: 삭제할 캘리브레이션 데이터
+    // FUNCTIONALITY:
+    //   - calibrationRecords/{userId}_{timestamp} 문서 삭제
+    // ═══════════════════════════════════════
+    func deleteCalibrationRecord(_ record: CalibrationData) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw UserServiceError.notLoggedIn
+        }
+
+        let timestamp = String(record.measuredAt.timeIntervalSince1970)
+        let documentId = "\(userId)_\(timestamp)"
+
+        let documentRef = firestore
+            .collection("calibrationRecords")
+            .document(documentId)
+
+        try await documentRef.delete()
+        print("✅ UserService: 캘리브레이션 기록 삭제 완료 (documentId: \(documentId))")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 선형 회귀 모델 저장
+    // PARAMETERS:
+    //   - model: 계산된 선형 회귀 모델
+    // FUNCTIONALITY:
+    //   - users/{userId}/strideModel 필드에 저장
+    // ═══════════════════════════════════════
+    func saveStrideModel(_ model: StrideModel) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw UserServiceError.notLoggedIn
+        }
+
+        let modelData: [String: Any] = [
+            "alpha": model.alpha,
+            "beta": model.beta,
+            "rSquared": model.rSquared,
+            "createdAt": Timestamp(date: model.createdAt),
+            "sampleCount": model.sampleCount
+        ]
+
+        try await firestore
+            .collection(usersCollection)
+            .document(userId)
+            .updateData(["strideModel": modelData])
+
+        print("✅ UserService: 선형 회귀 모델 저장 완료 (α: \(model.alpha), β: \(model.beta))")
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 선형 회귀 모델 로드
+    // RETURNS: 저장된 선형 회귀 모델 (없으면 nil)
+    // ═══════════════════════════════════════
+    func loadStrideModel() async throws -> StrideModel? {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw UserServiceError.notLoggedIn
+        }
+
+        let document = try await firestore
+            .collection(usersCollection)
+            .document(userId)
+            .getDocument()
+
+        guard let data = document.data(),
+              let modelData = data["strideModel"] as? [String: Any],
+              let alpha = modelData["alpha"] as? Double,
+              let beta = modelData["beta"] as? Double,
+              let rSquared = modelData["rSquared"] as? Double,
+              let timestamp = modelData["createdAt"] as? Timestamp,
+              let sampleCount = modelData["sampleCount"] as? Int else {
+            print("ℹ️ UserService: 선형 회귀 모델 없음")
+            return nil
+        }
+
+        let model = StrideModel(
+            alpha: alpha,
+            beta: beta,
+            rSquared: rSquared,
+            createdAt: timestamp.dateValue(),
+            sampleCount: sampleCount
+        )
+
+        print("✅ UserService: 선형 회귀 모델 로드 완료 (α: \(alpha), β: \(beta))")
+        return model
     }
 
     // MARK: - Data Migration
@@ -396,6 +450,7 @@ enum UserServiceError: LocalizedError {
     case searchFailed(String)
     case dataConversionFailed
     case userNotFound
+    case notLoggedIn
 
     var errorDescription: String? {
         switch self {
@@ -413,6 +468,8 @@ enum UserServiceError: LocalizedError {
             return "데이터 변환 실패"
         case .userNotFound:
             return "사용자를 찾을 수 없습니다"
+        case .notLoggedIn:
+            return "로그인이 필요합니다"
         }
     }
 }
