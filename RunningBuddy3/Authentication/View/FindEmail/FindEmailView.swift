@@ -27,10 +27,14 @@ struct FindEmailView: View {
             mainContent
         }
         .navigationBarTitleDisplayMode(.inline)
-        .standardAlert(isPresented: $viewModel.showingAlert, message: viewModel.alertMessage) {
-            if viewModel.currentStep == .showResults && viewModel.foundEmail != nil {
-                dismiss()
+        .alert("알림", isPresented: $viewModel.showingAlert) {
+            Button("확인", role: .cancel) {
+                if viewModel.currentStep == .showResults && viewModel.foundEmail != nil {
+                    dismiss()
+                }
             }
+        } message: {
+            Text(viewModel.alertMessage)
         }
         .overlay {
             if viewModel.isLoading {

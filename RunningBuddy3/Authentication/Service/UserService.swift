@@ -8,6 +8,7 @@ import FirebaseAuth
  * User Data Management
  * - saveUserData(): 회원가입 시 사용자 정보를 Firestore users 컬렉션에 저장
  * - getUserData(): 사용자 ID로 사용자 정보 조회
+ * - getUserDataWithCalibration(): 사용자 정보 + 캘리브레이션 기록 한 번에 조회
  * - verifySecurityAnswer(): 보안질문 답변 검증 👈 추후 사용예정
  * - updateUserData(): 사용자 데이터 업데이트 👈 추후 사용예정
  * - deleteUserData(): 사용자 데이터 삭제 👈 추후 사용예정
@@ -18,6 +19,7 @@ import FirebaseAuth
  * - deleteCalibrationRecord(): 캘리브레이션 기록 삭제
  * - saveStrideModel(): 선형 회귀 모델 저장
  * - loadStrideModel(): 선형 회귀 모델 로드
+ * - deleteStrideModel(): 선형 회귀 모델 삭제
  *
  * Username Methods
  * - checkUsernameExists(): 아이디 중복 체크
@@ -77,9 +79,7 @@ class UserService {
         // Step 4: Firestore에 저장 👈 userData.toDictionary() 상태로 저장!!
         do {
             try await firestore.collection(usersCollection).document(userId).setData(userData.toDictionary())
-            print("UserService: 사용자 데이터 저장 성공 - \(email)")
         } catch {
-            print("UserService: 사용자 데이터 저장 실패 - \(error.localizedDescription)")
             throw UserServiceError.saveFailed(error.localizedDescription)
         }
     }
@@ -89,26 +89,55 @@ class UserService {
     // ═══════════════════════════════════════
     func getUserData(userId: String) async throws -> UserData? {
         do {
-            // Step 1: Firestore에서 문서 조회
             let document = try await firestore.collection(usersCollection).document(userId).getDocument()
 
-            // Step 2: 문서 존재 여부 확인 let data = document.data() 👈 firestore에 저장된 원본
             guard document.exists, let data = document.data() else {
-                print("UserService: 사용자 데이터 없음 - \(userId)")
                 return nil
             }
 
-            // Step 3: UserData 객체로 변환 👈 UserData.fromDictionary(data) 상태로 가져옴!!
             guard let userData = UserData.fromDictionary(data) else {
-                print("UserService: 데이터 변환 실패 - \(userId)")
                 throw UserServiceError.dataConversionFailed
             }
 
-            print("UserService: 사용자 데이터 조회 성공 - \(userData.email)")
             return userData
 
         } catch {
-            print("UserService: 사용자 데이터 조회 실패 - \(error.localizedDescription)")
+            throw UserServiceError.fetchFailed(error.localizedDescription)
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 사용자 정보 + 캘리브레이션 기록 + 선형 모델 한 번에 조회
+    // RETURNS: (UserData, [CalibrationData], StrideData?)
+    // FUNCTIONALITY:
+    //   - Firestore 읽기 1회로 모든 데이터 로드
+    //   - 로그인 시 사용
+    // ═══════════════════════════════════════
+    func getUserDataWithCalibration(userId: String) async throws -> (UserData, [CalibrationData], StrideData?) {
+        do {
+            let document = try await firestore.collection(usersCollection).document(userId).getDocument()
+
+            guard document.exists, let data = document.data() else {
+                throw UserServiceError.userNotFound
+            }
+
+            guard let userData = UserData.fromDictionary(data) else {
+                throw UserServiceError.dataConversionFailed
+            }
+
+            let recordsArray = data["calibrationRecords"] as? [[String: Any]] ?? []
+            let records = recordsArray.compactMap { dict -> CalibrationData? in
+                CalibrationData.fromDictionary(dict)
+            }
+
+            var strideModel: StrideData?
+            if let modelData = data["strideModel"] as? [String: Any] {
+                strideModel = StrideData.fromDictionary(modelData)
+            }
+
+            return (userData, records, strideModel)
+
+        } catch {
             throw UserServiceError.fetchFailed(error.localizedDescription)
         }
     }
@@ -125,8 +154,6 @@ class UserService {
 
         // Step 2: 보안질문 답변 검증
         let isValid = securityService.verify(inputAnswer, hashedValue: userData.securityAnswer)
-
-        print("UserService: 보안질문 답변 검증 결과 - \(isValid)")
         return isValid
     }
 
@@ -137,9 +164,7 @@ class UserService {
     func updateUserData(userId: String, updates: [String: Any]) async throws {
         do {
             try await firestore.collection(usersCollection).document(userId).updateData(updates)
-            print("UserService: 사용자 데이터 업데이트 성공 - \(userId)")
         } catch {
-            print("UserService: 사용자 데이터 업데이트 실패 - \(error.localizedDescription)")
             throw UserServiceError.updateFailed(error.localizedDescription)
         }
     }
@@ -150,12 +175,8 @@ class UserService {
     // ═══════════════════════════════════════
     func deleteUserData(userId: String) async throws {
         do {
-            // users 컬렉션에서 사용자 문서 삭제
             try await firestore.collection(usersCollection).document(userId).delete()
-            print("UserService: 사용자 데이터 삭제 성공 - \(userId)")
-
         } catch {
-            print("UserService: 사용자 데이터 삭제 실패 - \(error.localizedDescription)")
             throw UserServiceError.deleteFailed(error.localizedDescription)
         }
     }
@@ -174,11 +195,9 @@ class UserService {
                 .getDocuments()
 
             let exists = !querySnapshot.documents.isEmpty
-            print("UserService: 아이디 중복 체크 - \(exists ? "이미 존재" : "사용 가능")")
             return exists
 
         } catch {
-            print("UserService: 아이디 중복 체크 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }
@@ -194,20 +213,16 @@ class UserService {
                 .getDocuments()
 
             guard let document = querySnapshot.documents.first else {
-                print("UserService: 아이디를 찾을 수 없음 - \(username)")
                 return nil
             }
 
             guard let userData = UserData.fromDictionary(document.data()) else {
-                print("UserService: 데이터 변환 실패 - \(username)")
                 return nil
             }
 
-            print("UserService: 아이디로 이메일 조회 성공 - \(username)")
             return userData.email
 
         } catch {
-            print("UserService: 아이디로 이메일 조회 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }
@@ -215,11 +230,11 @@ class UserService {
     // MARK: - Calibration History Management
 
     // ═══════════════════════════════════════
-    // PURPOSE: 새 캘리브레이션 기록 추가 (루트 컬렉션)
+    // PURPOSE: 새 캘리브레이션 기록 추가 (배열에 추가)
     // PARAMETERS:
     //   - record: 새 캘리브레이션 데이터
     // FUNCTIONALITY:
-    //   - calibrationRecords/{userId}_{timestamp} 루트 컬렉션에 저장
+    //   - users/{userId}/calibrationRecords 배열에 새 기록 추가
     //   - averageStepLength를 명시적으로 저장 (선형회귀 모델용)
     // ═══════════════════════════════════════
     func saveCalibrationRecord(_ record: CalibrationData) async throws {
@@ -227,62 +242,65 @@ class UserService {
             throw UserServiceError.notLoggedIn
         }
 
-        let timestamp = String(record.measuredAt.timeIntervalSince1970)
-        let documentId = "\(userId)_\(timestamp)"
-
         let documentRef = firestore
-            .collection("calibrationRecords")
-            .document(documentId)
+            .collection(usersCollection)
+            .document(userId)
 
-        try await documentRef.setData(record.toDictionary(userId: userId))
-        print("✅ UserService: 캘리브레이션 기록 저장 완료 (documentId: \(documentId))")
+        try await documentRef.updateData([
+            "calibrationRecords": FieldValue.arrayUnion([record.toDictionary(userId: userId)])
+        ])
     }
 
     // ═══════════════════════════════════════
     // PURPOSE: 모든 캘리브레이션 기록 로드
     // RETURNS: 캘리브레이션 기록 배열 (시간순)
     // FUNCTIONALITY:
-    //   - calibrationRecords 루트 컬렉션에서 userId로 필터링
+    //   - users/{userId}/calibrationRecords 배열에서 로드
     // ═══════════════════════════════════════
     func loadCalibrationRecords() async throws -> [CalibrationData] {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw UserServiceError.notLoggedIn
         }
 
-        let snapshot = try await firestore
-            .collection("calibrationRecords")
-            .whereField("userId", isEqualTo: userId)
-            .getDocuments()
+        let document = try await firestore
+            .collection(usersCollection)
+            .document(userId)
+            .getDocument()
 
-        let records = snapshot.documents.compactMap { doc -> CalibrationData? in
-            CalibrationData.fromDictionary(doc.data())
+        // 👈 전체 데이터에서 캘리브레이션있는 부분만 찾음
+        guard let data = document.data(),
+              let recordsArray = data["calibrationRecords"] as? [[String: Any]] else {
+            return []
         }
 
-        print("✅ UserService: 캘리브레이션 기록 로드 완료 (\(records.count)개)")
+        // 👈 캘리브레이션 전체 내용을 (딕셔너리) 를 CalibrationData 기준으로 나눠서 배열에 담음
+        let records = recordsArray.compactMap { dict -> CalibrationData? in
+            CalibrationData.fromDictionary(dict)
+        }
+
         return records
     }
 
     // ═══════════════════════════════════════
     // PURPOSE: 캘리브레이션 기록 삭제
     // PARAMETERS:
-    //   - record: 삭제할 캘리브레이션 데이터
+    //   - record: 삭제할 캘리브레이션 데이터 👈 인덱스 번호가 아니라 데이너 내용일치여부로 삭제함
     // FUNCTIONALITY:
-    //   - calibrationRecords/{userId}_{timestamp} 문서 삭제
+    //   - users/{userId}/calibrationRecords 배열에서 해당 기록 제거
     // ═══════════════════════════════════════
     func deleteCalibrationRecord(_ record: CalibrationData) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw UserServiceError.notLoggedIn
         }
 
-        let timestamp = String(record.measuredAt.timeIntervalSince1970)
-        let documentId = "\(userId)_\(timestamp)"
-
         let documentRef = firestore
-            .collection("calibrationRecords")
-            .document(documentId)
+            .collection(usersCollection)
+            .document(userId)
 
-        try await documentRef.delete()
-        print("✅ UserService: 캘리브레이션 기록 삭제 완료 (documentId: \(documentId))")
+        // FieldValue.arrayRemove를 사용하여 배열에서 제거
+        try await documentRef.updateData([
+            "calibrationRecords": FieldValue.arrayRemove([record.toDictionary(userId: userId)])
+        ])
     }
 
     // ═══════════════════════════════════════
@@ -292,32 +310,22 @@ class UserService {
     // FUNCTIONALITY:
     //   - users/{userId}/strideModel 필드에 저장
     // ═══════════════════════════════════════
-    func saveStrideModel(_ model: StrideModel) async throws {
+    func saveStrideModel(_ model: StrideData) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw UserServiceError.notLoggedIn
         }
 
-        let modelData: [String: Any] = [
-            "alpha": model.alpha,
-            "beta": model.beta,
-            "rSquared": model.rSquared,
-            "createdAt": Timestamp(date: model.createdAt),
-            "sampleCount": model.sampleCount
-        ]
-
         try await firestore
             .collection(usersCollection)
             .document(userId)
-            .updateData(["strideModel": modelData])
-
-        print("✅ UserService: 선형 회귀 모델 저장 완료 (α: \(model.alpha), β: \(model.beta))")
+            .updateData(["strideModel": model.toDictionary()])
     }
 
     // ═══════════════════════════════════════
     // PURPOSE: 선형 회귀 모델 로드
     // RETURNS: 저장된 선형 회귀 모델 (없으면 nil)
     // ═══════════════════════════════════════
-    func loadStrideModel() async throws -> StrideModel? {
+    func loadStrideModel() async throws -> StrideData? {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw UserServiceError.notLoggedIn
         }
@@ -328,26 +336,27 @@ class UserService {
             .getDocument()
 
         guard let data = document.data(),
-              let modelData = data["strideModel"] as? [String: Any],
-              let alpha = modelData["alpha"] as? Double,
-              let beta = modelData["beta"] as? Double,
-              let rSquared = modelData["rSquared"] as? Double,
-              let timestamp = modelData["createdAt"] as? Timestamp,
-              let sampleCount = modelData["sampleCount"] as? Int else {
-            print("ℹ️ UserService: 선형 회귀 모델 없음")
+              let modelData = data["strideModel"] as? [String: Any] else {
             return nil
         }
 
-        let model = StrideModel(
-            alpha: alpha,
-            beta: beta,
-            rSquared: rSquared,
-            createdAt: timestamp.dateValue(),
-            sampleCount: sampleCount
-        )
+        return StrideData.fromDictionary(modelData)
+    }
 
-        print("✅ UserService: 선형 회귀 모델 로드 완료 (α: \(alpha), β: \(beta))")
-        return model
+    // ═══════════════════════════════════════
+    // PURPOSE: 선형 회귀 모델 삭제
+    // FUNCTIONALITY:
+    //   - users/{userId}/strideModel 필드 삭제
+    // ═══════════════════════════════════════
+    func deleteStrideModel() async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw UserServiceError.notLoggedIn
+        }
+
+        try await firestore
+            .collection(usersCollection)
+            .document(userId)
+            .updateData(["strideModel": FieldValue.delete()])
     }
 
     // MARK: - Data Migration
@@ -364,7 +373,6 @@ class UserService {
 
         // Step 2: 문서가 없으면 종료
         guard document.exists else {
-            print("⚠️ 사용자 문서 없음 (마이그레이션 불필요)")
             return
         }
 
@@ -375,9 +383,6 @@ class UserService {
                 "securityAnswer": oldValue,
                 "hashedSecurityAnswer": FieldValue.delete()
             ])
-            print("✅ 개인 마이그레이션 완료: \(userId)")
-        } else {
-            print("⏭️ 마이그레이션 불필요 (이미 완료되었거나 신규 가입자)")
         }
     }
 
@@ -396,11 +401,9 @@ class UserService {
                 .getDocuments()
 
             let exists = !querySnapshot.documents.isEmpty
-            print("UserService: 전화번호 중복 체크 - \(exists ? "이미 존재" : "사용 가능")")
             return exists
 
         } catch {
-            print("UserService: 전화번호 중복 체크 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }
@@ -424,15 +427,12 @@ class UserService {
             // Step 2: 첫 번째 문서에서 아이디 추출
             guard let document = querySnapshot.documents.first,
                   let userData = UserData.fromDictionary(document.data()) else {
-                print("UserService: 해당 전화번호로 가입된 계정 없음")
                 return nil
             }
 
-            print("UserService: 전화번호로 아이디 찾기 완료 - \(userData.email)")
             return userData.email
 
         } catch {
-            print("UserService: 전화번호로 아이디 찾기 실패 - \(error.localizedDescription)")
             throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }

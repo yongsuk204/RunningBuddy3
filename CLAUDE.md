@@ -25,41 +25,56 @@ The project follows a **feature-based modular architecture** where related compo
   - `RootView.swift` - Root navigation view
   - `FirebaseManager.swift` - Singleton for Firebase service access
 
-- **Authentication/** - Complete authentication feature module
-  - `Components/Validator/` - Input validation services
+- **Authentication/** - Authentication feature module
+  - `AuthenticationManager.swift` - Firebase Auth wrapper with state management
+  - `Service/` - Authentication services and validators
+    - `UserService.swift` - Firestore user data management and ID recovery
+    - `SecurityService.swift` - Hashing service for security answers (SHA-512 + pepper)
+    - `PhoneVerificationService.swift` - SMS verification for ID recovery
     - `EmailValidator.swift` - RFC-compliant email validation
     - `PhoneNumberValidator.swift` - Korean phone number validation and formatting
     - `PasswordValidator.swift` - Password policy enforcement
+    - `UsernameValidator.swift` - Username validation
   - `View/` - Authentication UI components
     - `SignUp/` - Sequential signup flow (SignUpView + SignUpViewModel + Modals)
     - `Login/` - Login interface (LoginView)
     - `FindEmail/` - ID recovery (FindEmailView + FindEmailViewModel)
-    - `Main/` - Main app navigation (MainAppView, SettingsView)
+    - `Components/` - Reusable UI components (ProgressIndicator, ValidationFeedbackIcon, etc.)
 
-- **Sensor/** - Complete sensor data feature module
+- **Workout/** - Workout and calibration feature module
+  - `Service/` - Workout-related services
+    - `StrideCalibratorService.swift` - 100m stride calibration logic
+  - `View/` - Workout UI components
+    - `MainAppView.swift` - Main app navigation and workout dashboard
+    - `SettingsView.swift` - User settings and profile management
+    - `CalibrationView.swift` - 100m stride calibration measurement screen
+    - `CalibrationHistoryView.swift` - Calibration records history
+
+- **Sensor/** - Sensor data processing module
   - `Service/` - Sensor data processing services
     - `CadenceCalculator.swift` - Real-time cadence calculation from accelerometer/gyroscope
     - `DistanceCalculator.swift` - GPS-based distance tracking with route polyline
     - `HeadingManager.swift` - Compass heading for map orientation
     - `SensorDataExporter.swift` - CSV export functionality for workout data
+    - `StrideModelCalculator.swift` - Stride length calculation from calibration data
   - `View/` - Sensor UI components
     - `SensorDataView.swift` - Main sensor dashboard with map
     - `Components/` - Reusable sensor UI components
       - `CompactStatusCardView.swift` - Watch/GPS status indicators
       - `UnifiedMetricsCardView.swift` - Heart rate, cadence, distance metrics display
 
-- **Service/** - Shared services used across features
-  - `Authentication/` - Core authentication services
-    - `AuthenticationManager.swift` - Firebase Auth wrapper with state management
-    - `PhoneVerificationService.swift` - SMS verification for ID recovery
-    - `SecurityService.swift` - Hashing service for security answers (SHA-512 + pepper)
-  - `User/UserService.swift` - Firestore user data management and ID recovery
-  - `Watch/PhoneConnectivityManager.swift` - iPhone-Watch communication via WatchConnectivity
+- **Connectivity/** - Watch-iPhone communication module
+  - `PhoneConnectivityManager.swift` - iPhone-side Watch communication via WatchConnectivity
 
-- **DataModel/** - Data models and entities
-  - `User/UserData.swift` - User model with Firestore serialization
-  - `Sensor/SensorData.swift` - Watch sensor data model with dictionary serialization
-  - `Workout/WorkoutData.swift` - Workout session data model
+- **DataModel/** - Data models organized by domain
+  - `User/` - User-related models
+    - `UserData.swift` - User model with Firestore serialization
+  - `Sensor/` - Sensor and workout models
+    - `SensorData.swift` - Watch sensor data model (shared with watchOS target)
+    - `WorkoutData.swift` - Workout session data model
+  - `Calibration/` - Calibration-related models
+    - `CalibrationData.swift` - Stride calibration measurement data
+    - `StrideData.swift` - Stride model parameters
 
 - **Resource/** - App-wide resources
   - `DesignSystem.swift` - Centralized design tokens (colors, spacing, typography, shadows)
@@ -91,10 +106,11 @@ The project follows a **feature-based modular architecture** where related compo
 5. **Async/Await**: All Firebase operations use Swift's modern concurrency model with proper error handling
 
 6. **Watch-iPhone Communication**: Real-time sensor streaming using WatchConnectivity framework
-   - `PhoneConnectivityManager` (iPhone) receives sensor data and GPS locations from Watch
+   - `PhoneConnectivityManager` (Connectivity module) receives sensor data and GPS locations from Watch
    - `WatchConnectivityManager` (Watch) sends sensor data and receives workout commands
    - Bidirectional message passing: commands (iPhone → Watch), data (Watch → iPhone)
    - Event-driven architecture with `@Published` properties for reactive UI updates
+   - CalibrationView monitors Watch connectivity with `.onChange(of: isWatchReachable)` for automatic GPS activation
 
 7. **Sensor Data Processing**: iPhone processes raw sensor data from Watch
    - `CadenceCalculator.shared` - Real-time cadence (steps per minute) from accelerometer/gyroscope
@@ -174,7 +190,7 @@ When adding new signup steps or modifying the authentication flow:
 1. **Update SignUpStep enum** in `SignUpViewModel` with new case
 2. **Add validation state** to `ValidationStates` struct
 3. **Create modal component** following existing pattern:
-   - Validator service in `Service/Config/`
+   - Validator service in `Authentication/Service/`
    - Modal view with real-time validation and debouncing
    - Integration with `ValidationFeedbackIcon`
 4. **Update SignUpView** switch statement for new modal
@@ -233,6 +249,9 @@ timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
 - **Developer emoji annotations**: 👈 emoji and following comments are written by developer
   - **NEVER remove, modify, or add these annotations** - they are manual markers
   - Example: `private var isListenerEnabled: Bool = true  // 👈 리스너는 Auth의 변화가 있을때만 자동감지함`
+- **Print statements**: DO NOT add print() statements unless explicitly requested by the developer
+  - Includes debug logs, success messages, error messages, etc.
+  - Exception: Developer may request specific logging for debugging purposes
 
 Example function list format:
 ```swift
@@ -364,47 +383,116 @@ private func handleAction() async {
 - **Clear after capture**: Prevents message from appearing in unrelated views
 - **This is defensive coding**: Both clearing points may seem redundant but provide safety against unexpected navigation flows
 
-## UI Theme System
+## Design System
 
-### Color Theme Architecture
-The app uses a **fixed color theme** system with Swedish/IKEA style colors applied consistently across all views:
+The app uses a comprehensive **DesignSystem** defined in `Resource/DesignSystem.swift` for consistent UI styling across all views.
 
-- **Theme File**: `Application/Theme/ColorTheme.swift`
-- **Manager**: `ThemeManager.shared` (singleton)
-- **Colors**:
-  - Gradient Start: Sky Blue `#3399DB` (RGB: 51, 153, 219)
-  - Gradient End: Lemon Yellow `#FFDE33` (RGB: 255, 222, 51)
+### Architecture
+- **Design File**: `Resource/DesignSystem.swift`
+- **Theme Manager**: `ThemeManager.shared` (singleton for quick access)
+- **Pattern**: Centralized design tokens with SwiftUI View extensions
 
-### Applying Theme to New Views
-All views with background gradients should use the theme system:
+### Color Palette
 
+**Background Gradient** (Neutral Dark Gray):
+- Gradient Start: `#2C2C2E` (RGB: 0.17, 0.17, 0.18)
+- Gradient End: `#48484A` (RGB: 0.28, 0.28, 0.29)
+
+**Status Colors**:
+- Success: Green
+- Error: Red
+- Warning: Orange
+- Info: Blue
+- Neutral: Gray
+
+**Metric Icon Colors**:
+- Heart Rate: Red
+- Cadence: Orange
+- Distance: Blue
+
+### Design Tokens
+
+**Spacing** (4px grid):
+- xs: 4, sm: 8, md: 16, lg: 20, xl: 40, xxl: 60
+
+**Corner Radius**:
+- small: 12, medium: 16, large: 20
+
+**Opacity Levels**:
+- subtle: 0.1, light: 0.2, medium: 0.3, semiMedium: 0.6, strong: 0.8, veryStrong: 0.9
+
+**Typography**:
+- Large Value: 32pt bold rounded
+- Medium Value: 24pt semibold rounded
+- Icon sizes: Large (60pt), Medium (title2), Small (title3)
+
+### View Extensions Usage
+
+**Background Gradient**:
 ```swift
 @StateObject private var themeManager = ThemeManager.shared
 
 var body: some View {
     ZStack {
-        // Background gradient - Theme applied
         LinearGradient(
             colors: [
-                themeManager.currentTheme.gradientStart.opacity(0.6),
-                themeManager.currentTheme.gradientEnd.opacity(0.6)
+                themeManager.gradientStart.opacity(0.6),
+                themeManager.gradientEnd.opacity(0.6)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
         .ignoresSafeArea()
 
-        // Your view content here
+        // Content
     }
 }
 ```
 
-### Current Theme Coverage
+**Card Styles**:
+```swift
+// Standard card with material background
+VStack {
+    // Content
+}
+.cardStyle(
+    cornerRadius: DesignSystem.CornerRadius.medium,
+    shadow: DesignSystem.Shadow.card
+)
+
+// Overlay card for map (semi-transparent)
+VStack {
+    // Content
+}
+.overlayCardStyle(
+    cornerRadius: DesignSystem.CornerRadius.small,
+    shadow: DesignSystem.Shadow.subtle
+)
+```
+
+**Button Styles**:
+```swift
+// Primary button
+Text("확인")
+    .primaryButtonStyle(backgroundColor: DesignSystem.Colors.buttonSuccess)
+
+// Secondary button
+Text("취소")
+    .secondaryButtonStyle()
+
+// Modal buttons
+Text("다음")
+    .modalPrimaryButtonStyle(isDisabled: !isValid)
+```
+
+### Current Coverage
 - ✅ LoginView
-- ✅ SignUpView (and all signup modals)
+- ✅ SignUpView (and all signup modals with Glass UI)
 - ✅ FindEmailView
 - ✅ MainAppView
-- ✅ SensorDataView (uses DesignSystem for overlay cards)
+- ✅ SensorDataView (overlay cards on map)
+- ✅ CalibrationView
+- ✅ CalibrationHistoryView
 
 ## watchOS Companion App
 

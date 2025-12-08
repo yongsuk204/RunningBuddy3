@@ -21,7 +21,6 @@ extension Notification.Name {
  * Calibration History Management (Firestore)
  * - addCalibrationRecord(_:): 새 캘리브레이션 기록 추가 및 모델 재계산
  * - removeCalibrationRecord(at:): 캘리브레이션 기록 삭제 및 모델 재계산
- * - loadCalibrationHistory(): Firestore에서 캘리브레이션 히스토리 로드
  * - recalculateStrideModel(): 선형 회귀 모델 재계산 (5개 이상 시 동적 보폭 예측)
  */
 
@@ -49,7 +48,7 @@ class StrideCalibratorService: ObservableObject {
     @Published var calibrationRecords: [CalibrationData] = []
 
     // Purpose: 계산된 선형 회귀 모델 (보폭-케이던스)
-    @Published var strideModel: StrideModel?
+    @Published var strideModel: StrideData?
 
     // MARK: - Private Properties
 
@@ -104,14 +103,13 @@ class StrideCalibratorService: ObservableObject {
                     print("✅ 100m 도달! 측정 자동 종료")
 
                     // 자동 종료 알림 (0.5초 후)
+                    // 👈 캘리브레이션뷰에 콜백으로 알려줌
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         NotificationCenter.default.post(name: .calibrationAutoComplete, object: nil)
                     }
                 }
             }
         }
-
-        print("▶️ 캘리브레이션 측정 시작 (DistanceCalculator.shared 사용, GPS 워밍업 완료)")
     }
 
     // ═══════════════════════════════════════
@@ -164,13 +162,6 @@ class StrideCalibratorService: ObservableObject {
             averageCadence: finalCadence,
             timeSeconds: finalTime
         )
-
-        print("✅ 캘리브레이션 측정 완료 (100m 전체 평균 기반)")
-        print("   - 걸음 수: \(finalSteps)걸음")
-        print("   - 평균 케이던스: \(String(format: "%.1f", finalCadence)) SPM")
-        print("   - 소요 시간: \(String(format: "%.1f", finalTime))초")
-        print("   - 평균 보폭: \(String(format: "%.2f", calibrationData.averageStepLength))m")
-
         return calibrationData
     }
 
@@ -247,48 +238,22 @@ class StrideCalibratorService: ObservableObject {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: Firestore에서 캘리브레이션 히스토리 로드
-    // ═══════════════════════════════════════
-    func loadCalibrationHistory() async {
-        do {
-            let records = try await UserService.shared.loadCalibrationRecords()
-
-            DispatchQueue.main.async { [weak self] in
-                self?.calibrationRecords = records.sorted { $0.measuredAt > $1.measuredAt }
-            }
-
-            print("✅ 캘리브레이션 히스토리 로드 완료 (\(records.count)개 기록)")
-
-            await recalculateStrideModel()
-
-        } catch {
-            print("⚠️ 캘리브레이션 히스토리 로드 실패: \(error.localizedDescription)")
-        }
-    }
-
-    // ═══════════════════════════════════════
     // PURPOSE: 선형 회귀 모델 재계산 및 DistanceCalculator 적용
     // STRATEGY:
     //   - 5개 이상: 선형 회귀 모델 생성 (동적 보폭)
-    //   - 1~4개: 평균 보폭 사용 (고정 보폭)
-    //   - 0개: 보폭 추정 비활성화
+    //   - 5개 미만: 보폭 추정 비활성화 + Firestore 모델 삭제
     // ═══════════════════════════════════════
     func recalculateStrideModel() async {
         guard calibrationRecords.count >= 5 else {
+            DistanceCalculator.shared.setStrideModel(nil, fixedStride: nil)
+
             DispatchQueue.main.async { [weak self] in
                 self?.strideModel = nil
             }
 
-            if !calibrationRecords.isEmpty {
-                // 1~4개: 평균 보폭 사용
-                let averageStride = calibrationRecords.map { $0.averageStepLength }.reduce(0, +) / Double(calibrationRecords.count)
-                DistanceCalculator.shared.setStrideModel(nil, fixedStride: averageStride)
-                print("ℹ️ 캘리브레이션 기록 \(calibrationRecords.count)개 - 평균 보폭 사용: \(String(format: "%.3f", averageStride))m")
-                print("   ⚠️ 정확한 동적 보폭 모델을 위해 5회 이상 측정 권장")
-            } else {
-                // 0개: 비활성화
-                DistanceCalculator.shared.setStrideModel(nil, fixedStride: nil)
-                print("ℹ️ 캘리브레이션 기록 없음 - 보폭 추정 비활성화")
+            do {
+                try await UserService.shared.deleteStrideModel()
+            } catch {
             }
 
             return

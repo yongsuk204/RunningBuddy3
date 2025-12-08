@@ -12,6 +12,10 @@ struct RootView: View {
     // Purpose: 인증 상태 관리
     @StateObject private var authManager = AuthenticationManager()
 
+    // Purpose: 에러 알림 표시 상태
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+
     var body: some View {
         Group {
             if authManager.currentUser != nil {
@@ -23,5 +27,21 @@ struct RootView: View {
             }
         }
         .environmentObject(authManager)  // ← Group 레벨에서 제공
+
+        // 👈 알람처리를 하는 부분
+        .alert("오류", isPresented: $showAlert) {
+            Button("확인", role: .cancel) {
+                authManager.errorMessage = ""
+            }
+        } message: {
+            Text(alertMessage)
+        }
+        // 👈 데이터 감지함
+        .onChange(of: authManager.errorMessage) { oldValue, newValue in
+            if !newValue.isEmpty {
+                alertMessage = newValue
+                showAlert = true
+            }
+        }
     }
 }

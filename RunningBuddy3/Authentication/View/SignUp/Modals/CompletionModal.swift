@@ -38,10 +38,14 @@ struct CompletionModal: View {
         .padding(30)
         .modalBackgroundStyle()
         .padding(.horizontal, 20)
-        .standardAlert(isPresented: $showingAlert, message: alertMessage) {
-            if authManager.currentUser != nil {
-                dismiss()
+        .alert("알림", isPresented: $showingAlert) {
+            Button("확인", role: .cancel) {
+                if authManager.currentUser != nil {
+                    dismiss()
+                }
             }
+        } message: {
+            Text(alertMessage)
         }
         .onChange(of: authManager.currentUser) { _, currentUser in
             if currentUser != nil {

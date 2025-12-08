@@ -5,48 +5,29 @@ import Foundation
 /*
  * Linear Regression
  * - calculateStrideModel(from:): 여러 캘리브레이션 기록으로부터 α, β 계산
- * - predictStride(cadence:alpha:beta:): 케이던스로 보폭 예측
+ * - predictStride(model:cadence:): 케이던스로 보폭 예측
  */
-
-/// 선형 회귀 모델: stride = alpha * cadence + beta
-struct StrideModel: Codable {
-    // Purpose: 케이던스 계수 (미터/spm) - 일반적으로 음수값
-    let alpha: Double
-
-    // Purpose: 절편 (미터)
-    let beta: Double
-
-    // Purpose: 결정계수 (R²) - 모델 적합도 (0~1, 1에 가까울수록 정확)
-    let rSquared: Double
-
-    // Purpose: 모델 생성 시각
-    let createdAt: Date
-
-    // Purpose: 모델 학습에 사용된 캘리브레이션 기록 수
-    let sampleCount: Int
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 케이던스로 보폭 예측
-    // PARAMETERS:
-    //   - cadence: 현재 케이던스 (spm)
-    // RETURNS: 예측된 보폭 (미터)
-    // ═══════════════════════════════════════
-    func predictStride(cadence: Double) -> Double {
-        let predicted = alpha * cadence + beta
-        // 안전 범위: 0.3m ~ 1.2m
-        return max(0.3, min(1.2, predicted))
-    }
-}
 
 class StrideModelCalculator {
 
     // MARK: - Public Methods
 
     // ═══════════════════════════════════════
+    // PURPOSE: 케이던스로 보폭 예측
+    // PARAMETERS:
+    //   - model: 선형 회귀 모델
+    //   - cadence: 현재 케이던스 (spm)
+    // RETURNS: 예측된 보폭 (미터)
+    // ═══════════════════════════════════════
+    static func predictStride(model: StrideData, cadence: Double) -> Double {
+        return model.alpha * cadence + model.beta
+    }
+
+    // ═══════════════════════════════════════
     // PURPOSE: 선형 회귀를 통한 보폭-케이던스 모델 계산
     // PARAMETERS:
     //   - records: 캘리브레이션 기록 배열 (최소 2개 필요)
-    // RETURNS: 계산된 선형 모델 (StrideModel) 또는 nil
+    // RETURNS: 계산된 선형 모델 (StrideData) 또는 nil
     // ALGORITHM:
     //   1. 최소 자승법(Ordinary Least Squares)으로 α, β 계산
     //   2. R² 값으로 모델 적합도 평가
@@ -55,10 +36,9 @@ class StrideModelCalculator {
     //   α = Σ[(x-x̄)(y-ȳ)] / Σ[(x-x̄)²]
     //   β = ȳ - α*x̄
     // ═══════════════════════════════════════
-    static func calculateStrideModel(from records: [CalibrationData]) -> StrideModel? {
-        // Step 1: 최소 2개 이상의 데이터 필요
-        guard records.count >= 2 else {
-            print("⚠️ 선형 회귀 실패: 최소 2개의 캘리브레이션 기록 필요 (현재: \(records.count)개)")
+    static func calculateStrideModel(from records: [CalibrationData]) -> StrideData? {
+        // Step 1: 최소 5개 이상의 데이터 필요
+        guard records.count >= 5 else {
             return nil
         }
 
@@ -112,19 +92,13 @@ class StrideModelCalculator {
         let rSquared = ssTot > 0 ? (1 - ssRes / ssTot) : 0.0
 
         // Step 7: 모델 생성
-        let model = StrideModel(
+        let model = StrideData(
             alpha: alpha,
             beta: beta,
             rSquared: rSquared,
             createdAt: Date(),
             sampleCount: records.count
         )
-
-        print("✅ 선형 회귀 모델 생성 완료:")
-        print("   📐 보폭 = \(String(format: "%.6f", alpha)) × 케이던스 + \(String(format: "%.3f", beta))")
-        print("   📊 R² = \(String(format: "%.3f", rSquared)) (적합도: \(interpretRSquared(rSquared)))")
-        print("   📝 샘플 수: \(records.count)개")
-
         return model
     }
 

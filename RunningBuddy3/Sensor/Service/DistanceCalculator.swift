@@ -52,7 +52,7 @@ class DistanceCalculator: ObservableObject {
     // MARK: - Private Properties (Stride-Based)
 
     // Purpose: 선형 회귀 모델 (보폭 = α * 케이던스 + β)
-    private var strideModel: StrideModel?
+    private var strideModel: StrideData?
 
     // Purpose: 고정 보폭 (모델 없을 때 사용, 미터)
     private var fixedStride: Double?
@@ -81,7 +81,6 @@ class DistanceCalculator: ObservableObject {
     func addLocation(_ location: CLLocation) {
         // Step 1: 위치 유효성 검증
         guard isValidLocation(location) else {
-            print("⚠️ 부정확한 GPS 데이터 (accuracy: \(location.horizontalAccuracy)m)")
             return
         }
 
@@ -95,7 +94,6 @@ class DistanceCalculator: ObservableObject {
 
             // Step 4: 속도 필터링 (순간이동 방지)
             guard isRealisticSpeed(distance: distance, time: timeDelta) else {
-                print("⚠️ 비현실적 속도 감지 (\(String(format: "%.1f", distance / timeDelta)) m/s)")
                 previousLocation = location
                 return
             }
@@ -107,8 +105,6 @@ class DistanceCalculator: ObservableObject {
                 // 페이스 표시 기능용 (향후 사용 예정)
                 self.currentSpeed = distance / timeDelta
             }
-
-            print("📍 GPS 거리 업데이트: +\(String(format: "%.1f", distance))m (총: \(String(format: "%.2f", totalDistance / 1000))km)")
         }
 
         // Step 6: 현재 위치를 이전 위치로 저장
@@ -130,8 +126,6 @@ class DistanceCalculator: ObservableObject {
         currentSpeed = 0.0
         locations.removeAll()
         previousSteps = 0
-
-        print("🔄 거리 계산 초기화")
     }
 
     // ═══════════════════════════════════════
@@ -141,18 +135,9 @@ class DistanceCalculator: ObservableObject {
     //   - fixedStride: 고정 보폭 (모델 없을 때 사용)
     // NOTE: 둘 중 하나만 설정 (model 우선)
     // ═══════════════════════════════════════
-    func setStrideModel(_ model: StrideModel?, fixedStride: Double?) {
+    func setStrideModel(_ model: StrideData?, fixedStride: Double?) {
         self.strideModel = model
         self.fixedStride = fixedStride
-
-        if let model = model {
-            print("✅ 동적 보폭 모델 설정: stride = \(String(format: "%.6f", model.alpha)) × cadence + \(String(format: "%.3f", model.beta))")
-            print("   📊 R² = \(String(format: "%.3f", model.rSquared))")
-        } else if let fixed = fixedStride {
-            print("✅ 고정 보폭 설정: \(String(format: "%.3f", fixed))m")
-        } else {
-            print("ℹ️ 보폭 추정 비활성화 (캘리브레이션 필요)")
-        }
     }
 
     // ═══════════════════════════════════════
@@ -178,7 +163,7 @@ class DistanceCalculator: ObservableObject {
         let predictedStride: Double
         if let model = strideModel {
             // 동적 보폭: stride = α * cadence + β
-            predictedStride = model.predictStride(cadence: currentCadence)
+            predictedStride = StrideModelCalculator.predictStride(model: model, cadence: currentCadence)
         } else if let fixed = fixedStride {
             // 고정 보폭
             predictedStride = fixed
@@ -196,14 +181,6 @@ class DistanceCalculator: ObservableObject {
         }
 
         previousSteps = currentSteps
-
-        // 로그 출력
-        if strideModel != nil {
-            print("👣 동적 보폭 추정: +\(stepIncrement)걸음 × \(String(format: "%.3f", predictedStride))m (케이던스 \(String(format: "%.1f", currentCadence))) = +\(String(format: "%.1f", addedDistance))m")
-        } else {
-            print("👣 고정 보폭 추정: +\(stepIncrement)걸음 × \(String(format: "%.3f", predictedStride))m = +\(String(format: "%.1f", addedDistance))m")
-        }
-        print("   총 보폭 거리: \(String(format: "%.2f", strideBasedDistance / 1000))km")
     }
 
     // MARK: - Private Methods

@@ -35,7 +35,11 @@ struct LoginView: View {
             .navigationDestination(isPresented: $showingFindEmail) {
                 FindEmailView()
             }
-            .standardAlert(isPresented: $showingAlert, message: alertMessage)
+            .alert("알림", isPresented: $showingAlert) {
+                Button("확인", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
             .overlay {
                 if authManager.isLoading {
                     ProgressView()

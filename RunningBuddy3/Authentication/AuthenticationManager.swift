@@ -18,9 +18,6 @@ import Combine
  * - deleteCurrentAccount(): 현재 계정 삭제
  * - sendPasswordReset(): 비밀번호 재설정 이메일 발송
  *
- * Helper Methods
- * - loadUserData(): 사용자 Firestore 데이터 로드 및 캐싱
- *
  * Error Handling
  * - handleAuthError(): Firebase Auth 에러를 한글 메시지로 변환
  */
@@ -78,9 +75,29 @@ class AuthenticationManager: ObservableObject {
                 guard self?.isListenerEnabled == true else { return }
                 self?.currentUser = user
 
-                // 로그인 시 사용자 데이터 자동 로드, 로그아웃 시 캐시 초기화
                 if let user = user {
-                    await self?.loadUserData(userId: user.uid)
+                    do {
+                        let (userData, records, strideModel) = try await self?.userService.getUserDataWithCalibration(userId: user.uid) ?? (nil, [], nil)
+                        self?.currentUserData = userData
+                        
+                        // 👈 StrideCalibratorService.shared 싱글톤 인스턴스의 두 변수에 데이터저장
+                        // 👈 @Published 변수는 반드시 메인 스레드에서 업데이트해야 함
+                        await MainActor.run {
+                            StrideCalibratorService.shared.calibrationRecords = records.sorted { $0.measuredAt > $1.measuredAt }
+                            StrideCalibratorService.shared.strideModel = strideModel
+                        }
+
+                        if let model = strideModel {
+                            DistanceCalculator.shared.setStrideModel(model, fixedStride: nil)
+                        } else {
+                            await StrideCalibratorService.shared.recalculateStrideModel()
+                        }
+                    } catch {
+                        // 👈 에러메시지를받아서 RootView에서 알람처리함
+                        await MainActor.run {
+                            self?.errorMessage = "사용자 데이터 로드 실패: \(error.localizedDescription)"
+                        }
+                    }
                 } else {
                     self?.currentUserData = nil
                 }
@@ -246,30 +263,6 @@ class AuthenticationManager: ObservableObject {
         // Step 5: 로딩 상태 종료
         await MainActor.run {
             isLoading = false
-        }
-    }
-
-    // MARK: - Helper Methods
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 사용자 데이터 로드 및 캐싱
-    // FUNCTIONALITY:
-    //   1. Firestore에서 사용자 데이터 로드
-    //   2. 캘리브레이션 히스토리 로드 (보폭 모델 계산)
-    // ═══════════════════════════════════════
-    private func loadUserData(userId: String) async {
-        do {
-            let userData = try await userService.getUserData(userId: userId)
-            await MainActor.run {
-                self.currentUserData = userData
-            }
-
-            print("✅ 사용자 데이터 로드 완료")
-
-            // 캘리브레이션 히스토리 로드 (선형 회귀 모델 계산)
-            await StrideCalibratorService.shared.loadCalibrationHistory()
-        } catch {
-            print("⚠️ 사용자 데이터 로드 실패: \(error.localizedDescription)")
         }
     }
 
