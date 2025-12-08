@@ -161,7 +161,7 @@ struct SecurityQuestionModal: View {
             nextButtonTitle: "다음",
             isNextDisabled: !isValid,
             onBack: {
-                viewModel.currentStep = .phoneNumber
+                viewModel.currentStep = .password
             },
             onNext: {
                 viewModel.currentStep = .completion

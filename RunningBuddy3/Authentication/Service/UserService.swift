@@ -21,18 +21,8 @@ import FirebaseAuth
  * - loadStrideModel(): 선형 회귀 모델 로드
  * - deleteStrideModel(): 선형 회귀 모델 삭제
  *
- * Username Methods
- * - checkUsernameExists(): 아이디 중복 체크
- * - getEmailByUsername(): 아이디로 이메일 조회 (로그인용)
- *
  * Data Migration
  * - migrateUserData(): 로그인 시 사용자 데이터 마이그레이션 (필드명 변경 등) 👈 배포전까지는 아마 필요없을거임
- *
- * Duplicate Check Methods
- * - checkPhoneNumberExists(): 전화번호 중복 체크 (회원가입용)
- *
- * ID Recovery Methods
- * - findEmailByPhoneNumber(): 전화번호로 사용자 아이디 찾기 (단일 계정)
  */
 class UserService {
 
@@ -62,16 +52,14 @@ class UserService {
     // ═══════════════════════════════════════
     // PURPOSE: 회원가입 시 사용자 정보를 Firestore에 저장
     // ═══════════════════════════════════════
-    func saveUserData(userId: String, username: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String) async throws {
+    func saveUserData(userId: String, email: String, securityQuestion: String, securityAnswer: String) async throws {
         // Step 1: 보안질문 답변만 해시화
         let hashedAnswer = securityService.hash(securityAnswer)
 
         // Step 2: UserData 객체 생성
         let userData = UserData(
             userId: userId,
-            username: username,
             email: email,
-            phoneNumber: phoneNumber,
             securityQuestion: securityQuestion,
             securityAnswer: hashedAnswer
         )
@@ -181,51 +169,6 @@ class UserService {
         }
     }
 
-
-    // MARK: - Username Methods
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 아이디 중복 체크
-    // ═══════════════════════════════════════
-    func checkUsernameExists(_ username: String) async throws -> Bool {
-        do {
-            let querySnapshot = try await firestore
-                .collection(usersCollection)
-                .whereField("username", isEqualTo: username)
-                .getDocuments()
-
-            let exists = !querySnapshot.documents.isEmpty
-            return exists
-
-        } catch {
-            throw UserServiceError.searchFailed(error.localizedDescription)
-        }
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 아이디로 이메일 조회 (로그인용)
-    // ═══════════════════════════════════════
-    func getEmailByUsername(_ username: String) async throws -> String? {
-        do {
-            let querySnapshot = try await firestore
-                .collection(usersCollection)
-                .whereField("username", isEqualTo: username)
-                .getDocuments()
-
-            guard let document = querySnapshot.documents.first else {
-                return nil
-            }
-
-            guard let userData = UserData.fromDictionary(document.data()) else {
-                return nil
-            }
-
-            return userData.email
-
-        } catch {
-            throw UserServiceError.searchFailed(error.localizedDescription)
-        }
-    }
 
     // MARK: - Calibration History Management
 
@@ -383,57 +326,6 @@ class UserService {
                 "securityAnswer": oldValue,
                 "hashedSecurityAnswer": FieldValue.delete()
             ])
-        }
-    }
-
-    // MARK: - Duplicate Check Methods
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 전화번호 중복 체크
-    // NOTE: 회원가입 시 사용, 한 전화번호당 하나의 계정만 허용
-    // ═══════════════════════════════════════
-    func checkPhoneNumberExists(_ phoneNumber: String) async throws -> Bool {
-        do {
-            let querySnapshot = try await firestore
-                .collection(usersCollection)
-                .whereField("phoneNumber", isEqualTo: phoneNumber)
-                .limit(to: 1)
-                .getDocuments()
-
-            let exists = !querySnapshot.documents.isEmpty
-            return exists
-
-        } catch {
-            throw UserServiceError.searchFailed(error.localizedDescription)
-        }
-    }
-
-    // MARK: - ID Recovery Methods
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 전화번호로 사용자 아이디 찾기 (단일 계정)
-    // NOTE: 전화번호는 원본으로 저장되어 Firestore 쿼리 가능
-    // NOTE: 한 전화번호당 하나의 계정만 가능하므로 단일 아이디 반환
-    // ═══════════════════════════════════════
-    func findEmailByPhoneNumber(_ phoneNumber: String) async throws -> String? {
-        do {
-            // Step 1: Firestore 쿼리로 전화번호 일치하는 사용자 찾기
-            let querySnapshot = try await firestore
-                .collection(usersCollection)
-                .whereField("phoneNumber", isEqualTo: phoneNumber)
-                .limit(to: 1)  // 한 전화번호당 하나의 계정만 가능
-                .getDocuments()
-
-            // Step 2: 첫 번째 문서에서 아이디 추출
-            guard let document = querySnapshot.documents.first,
-                  let userData = UserData.fromDictionary(document.data()) else {
-                return nil
-            }
-
-            return userData.email
-
-        } catch {
-            throw UserServiceError.searchFailed(error.localizedDescription)
         }
     }
 

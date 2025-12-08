@@ -146,7 +146,7 @@ struct PasswordSetupModal: View {
                 viewModel.currentStep = .email
             },
             onNext: {
-                viewModel.currentStep = .phoneNumber
+                viewModel.currentStep = .security
             }
         )
     }

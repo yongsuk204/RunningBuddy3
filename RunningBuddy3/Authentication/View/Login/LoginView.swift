@@ -10,10 +10,10 @@ struct LoginView: View {
     @EnvironmentObject var authManager: AuthenticationManager
 
     // State Properties
-    @State private var username = ""
+    @State private var email = ""
     @State private var password = ""
     @State private var showingSignUp = false
-    @State private var showingFindEmail = false
+    @State private var showingResetPassword = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
@@ -31,9 +31,6 @@ struct LoginView: View {
             }
             .navigationDestination(isPresented: $showingSignUp) {
                 SignUpView()
-            }
-            .navigationDestination(isPresented: $showingFindEmail) {
-                FindEmailView()
             }
             .alert("알림", isPresented: $showingAlert) {
                 Button("확인", role: .cancel) { }
@@ -57,8 +54,11 @@ struct LoginView: View {
             }
             .onAppear {
                 // LoginView 진입 시 이전 에러 메시지 초기화 = 에러 메시지 오염 방지(Error Message Pollution Prevention) 패턴
-                // Note: FindEmailView에서도 비밀번호 재설정 완료 후 초기화함
                 authManager.errorMessage = ""
+            }
+            .sheet(isPresented: $showingResetPassword) {
+                ResetPasswordModal()
+                    .environmentObject(authManager)
             }
         }
     }
@@ -106,18 +106,18 @@ struct LoginView: View {
     // ═══════════════════════════════════════
     private var contentSection: some View {
         VStack(spacing: DesignSystem.Spacing.md - 1) {
-            // 아이디 입력 필드
+            // 이메일 입력 필드
             HStack {
-                Image(systemName: "person")
+                Image(systemName: "envelope")
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                     .frame(width: DesignSystem.Spacing.lg)
 
-                TextField("", text: $username)
+                TextField("", text: $email)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .keyboardType(.asciiCapable)
+                    .keyboardType(.emailAddress)
                     .autocorrectionDisabled(true)
                     .textInputAutocapitalization(.never)
-                    .textContentType(.oneTimeCode)
+                    .textContentType(.emailAddress)
             }
             .inputFieldStyle()
 
@@ -145,7 +145,7 @@ struct LoginView: View {
             // 로그인 버튼
             Button {
                 Task {
-                    await authManager.signIn(username: username, password: password)
+                    await authManager.signIn(email: email, password: password)
                 }
             } label: {
                 Text("로그인")
@@ -158,7 +158,7 @@ struct LoginView: View {
             .padding(.horizontal, DesignSystem.Spacing.md)
             .disabled(!isLoginButtonEnabled || authManager.isLoading)
 
-            // 회원가입 / 아이디 찾기
+            // 회원가입 / 비밀번호 재설정
             HStack(spacing: DesignSystem.Spacing.lg) {
                 Button("회원가입") {
                     showingSignUp = true
@@ -168,8 +168,8 @@ struct LoginView: View {
                 Text("|")
                     .foregroundColor(DesignSystem.Colors.textTertiary)
 
-                Button("아이디 찾기") {
-                    showingFindEmail = true
+                Button("비밀번호 재설정") {
+                    showingResetPassword = true
                 }
                 .foregroundColor(DesignSystem.Colors.textSecondary.opacity(DesignSystem.Opacity.veryStrong + 0.1))
             }
@@ -182,6 +182,6 @@ struct LoginView: View {
     // PURPOSE: 로그인 버튼 활성화 여부 확인
     // ═══════════════════════════════════════
     private var isLoginButtonEnabled: Bool {
-        !username.isEmpty && !password.isEmpty
+        !email.isEmpty && !password.isEmpty
     }
 }

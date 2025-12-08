@@ -16,14 +16,8 @@ struct UserData: Codable {
     // Purpose: Firebase Auth에서 생성된 고유 사용자 ID
     let userId: String
 
-    // Purpose: 사용자 아이디 (로그인용, 중복 불가)
-    let username: String
-
-    // Purpose: 이메일 (Firebase Auth용, 원본 저장)
+    // Purpose: 이메일 (Firebase Auth용, 원본 저장, 로그인 ID로 사용)
     let email: String
-
-    // Purpose: 전화번호 (원본 저장, 이메일 찾기용)
-    let phoneNumber: String
 
     // Purpose: 계정 생성 날짜
     let createdAt: Date
@@ -38,11 +32,9 @@ struct UserData: Codable {
 
     // Purpose: 사용자 데이터 생성 (회원가입 시에는 현재 시간, Firestore에서 읽을 때는 원본 시간 사용)
     // NOTE: 캘리브레이션 데이터는 서브컬렉션(calibrationRecords)으로 관리됨
-    init(userId: String, username: String, email: String, phoneNumber: String, securityQuestion: String, securityAnswer: String, createdAt: Date = Date()) {
+    init(userId: String, email: String, securityQuestion: String, securityAnswer: String, createdAt: Date = Date()) {
         self.userId = userId
-        self.username = username
         self.email = email
-        self.phoneNumber = phoneNumber
         self.createdAt = createdAt
         self.securityQuestion = securityQuestion
         self.securityAnswer = securityAnswer
@@ -55,9 +47,7 @@ struct UserData: Codable {
     func toDictionary() -> [String: Any] {
         return [
             "userId": userId,
-            "username": username,
             "email": email,
-            "phoneNumber": phoneNumber,
             "createdAt": Timestamp(date: createdAt),
             "securityQuestion": securityQuestion,
             "securityAnswer": securityAnswer
@@ -67,9 +57,7 @@ struct UserData: Codable {
     // Purpose: Firestore 문서에서 UserData 객체 생성
     static func fromDictionary(_ data: [String: Any]) -> UserData? {
         guard let userId = data["userId"] as? String,
-              let username = data["username"] as? String,
               let email = data["email"] as? String,
-              let phoneNumber = data["phoneNumber"] as? String,
               let timestamp = data["createdAt"] as? Timestamp,
               let securityQuestion = data["securityQuestion"] as? String,
               let securityAnswer = data["securityAnswer"] as? String else {
@@ -81,9 +69,7 @@ struct UserData: Codable {
 
         let userData = UserData(
             userId: userId,
-            username: username,
             email: email,
-            phoneNumber: phoneNumber,
             securityQuestion: securityQuestion,
             securityAnswer: securityAnswer,
             createdAt: originalCreatedAt

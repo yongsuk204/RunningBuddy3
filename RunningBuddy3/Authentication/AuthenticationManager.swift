@@ -137,9 +137,9 @@ class AuthenticationManager: ObservableObject {
     // MARK: - Authentication Methods
 
     // ═══════════════════════════════════════
-    // PURPOSE: 아이디/이메일/비밀번호 회원가입
+    // PURPOSE: 이메일/비밀번호 회원가입
     // ═══════════════════════════════════════
-    func signUp(username: String, email: String, password: String, phoneNumber: String, securityQuestion: String?, securityAnswer: String?) async {
+    func signUp(email: String, password: String, securityQuestion: String?, securityAnswer: String?) async {
         // Step 1: 로딩 상태 시작
         await MainActor.run {
             isLoading = true
@@ -154,9 +154,7 @@ class AuthenticationManager: ObservableObject {
             do {
                 try await userService.saveUserData(
                     userId: result.user.uid,
-                    username: username,
                     email: email,
-                    phoneNumber: phoneNumber,
                     securityQuestion: securityQuestion!,
                     securityAnswer: securityAnswer!
                 )
@@ -181,9 +179,9 @@ class AuthenticationManager: ObservableObject {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 아이디/비밀번호로 로그인 (개인 마이그레이션 포함)
+    // PURPOSE: 이메일/비밀번호로 로그인 (개인 마이그레이션 포함)
     // ═══════════════════════════════════════
-    func signIn(username: String, password: String) async {
+    func signIn(email: String, password: String) async {
         // Step 1: 로딩 상태 시작
         await MainActor.run {
             isLoading = true
@@ -191,33 +189,24 @@ class AuthenticationManager: ObservableObject {
         }
 
         do {
-            // Step 2: 아이디로 이메일 조회
-            guard let email = try await userService.getEmailByUsername(username) else {
-                await MainActor.run {
-                    self.errorMessage = "존재하지 않는 아이디입니다"
-                    self.isLoading = false
-                }
-                return
-            }
-
-            // Step 3: Firebase 로그인 시도 (이메일 사용)
+            // Step 2: Firebase 로그인 시도 (이메일 사용)
             let result = try await Auth.auth().signIn(withEmail: email, password: password)
 
-            // Step 4: 사용자 데이터 마이그레이션 (필드명 변경 등)
+            // Step 3: 사용자 데이터 마이그레이션 (필드명 변경 등)
             do {
                 try await userService.migrateUserData(userId: result.user.uid)
             } catch {
-                print("⚠️ 데이터 마이그레이션 실패 (무시 가능): \(error.localizedDescription)")
+                // 👈 마이그레이션 실패는 무시 (로그인 차단하지 않음)
             }
 
         } catch {
-            // Step 5: 에러 처리
+            // Step 4: 에러 처리
             await MainActor.run {
                 self.errorMessage = self.handleAuthError(error)
             }
         }
 
-        // Step 6: 로딩 상태 종료
+        // Step 5: 로딩 상태 종료
         await MainActor.run {
             isLoading = false
         }

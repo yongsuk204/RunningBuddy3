@@ -77,23 +77,9 @@ struct CompletionModal: View {
     private var summarySection: some View {
         VStack(spacing: 16) {
             summaryItem(
-                icon: "person",
-                title: "아이디",
-                value: viewModel.signUpData.username,
-                status: .valid
-            )
-
-            summaryItem(
                 icon: "envelope",
                 title: "이메일",
                 value: viewModel.signUpData.email,
-                status: .valid
-            )
-
-            summaryItem(
-                icon: "phone",
-                title: "전화번호",
-                value: viewModel.signUpData.phoneNumber,
                 status: .valid
             )
 
@@ -212,10 +198,8 @@ struct CompletionModal: View {
     private func performSignUp() {
         Task {
             await authManager.signUp(
-                username: viewModel.signUpData.username,
                 email: viewModel.signUpData.email,
                 password: viewModel.signUpData.password,
-                phoneNumber: viewModel.signUpData.phoneNumber,
                 securityQuestion: viewModel.signUpData.selectedSecurityQuestion,
                 securityAnswer: viewModel.signUpData.securityAnswer
             )
