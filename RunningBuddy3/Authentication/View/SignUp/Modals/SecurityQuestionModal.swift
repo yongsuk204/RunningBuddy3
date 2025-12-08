@@ -39,11 +39,11 @@ struct SecurityQuestionModal: View {
         .padding(30)
         .modalBackgroundStyle()
         .padding(.horizontal, 20)
-        .infoAlert(
-            title: "보안 팁",
-            isPresented: $showingInfoAlert,
-            message: "• 다른 사람이 쉽게 추측할 수 없는 답변을 입력하세요\n• 답변은 정확히 기억할 수 있는 내용으로 설정하세요\n• 대소문자를 구분하여 정확히 입력해주세요"
-        )
+        .alert("보안 팁", isPresented: $showingInfoAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("• 다른 사람이 쉽게 추측할 수 없는 답변을 입력하세요\n• 답변은 정확히 기억할 수 있는 내용으로 설정하세요\n• 대소문자를 구분하여 정확히 입력해주세요")
+        }
     }
 
     // MARK: - Header Section

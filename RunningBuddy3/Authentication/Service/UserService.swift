@@ -8,7 +8,7 @@ import FirebaseAuth
  * User Data Management
  * - saveUserData(): 회원가입 시 사용자 정보를 Firestore users 컬렉션에 저장
  * - getUserData(): 사용자 ID로 사용자 정보 조회
- * - getUserDataWithCalibration(): 사용자 정보 + 캘리브레이션 기록 한 번에 조회
+ * - getUserDataWithCalibration(): 사용자 정보 + 캘리브레이션 + 선형 모델기록 한 번에 조회
  * - verifySecurityAnswer(): 보안질문 답변 검증 👈 추후 사용예정
  * - updateUserData(): 사용자 데이터 업데이트 👈 추후 사용예정
  * - deleteUserData(): 사용자 데이터 삭제 👈 추후 사용예정
@@ -113,6 +113,10 @@ class UserService {
                 throw UserServiceError.dataConversionFailed
             }
 
+            // 👈Firestore 저장 형식: JSON-like 딕셔너리 [String: Any]
+            // Swift 사용 형식: 타입 안전한 CalibrationData 구조체
+            // recordsArray: [[String: Any]] - Firestore 원본 형식
+            // records: [CalibrationData] - Swift에서 사용할 수 있는 타입 안전한 배열
             let recordsArray = data["calibrationRecords"] as? [[String: Any]] ?? []
             let records = recordsArray.compactMap { dict -> CalibrationData? in
                 CalibrationData.fromDictionary(dict)

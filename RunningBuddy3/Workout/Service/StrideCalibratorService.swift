@@ -245,7 +245,7 @@ class StrideCalibratorService: ObservableObject {
     // ═══════════════════════════════════════
     func recalculateStrideModel() async {
         guard calibrationRecords.count >= 5 else {
-            DistanceCalculator.shared.setStrideModel(nil, fixedStride: nil)
+            DistanceCalculator.shared.setStrideModel(nil)
 
             DispatchQueue.main.async { [weak self] in
                 self?.strideModel = nil
@@ -269,7 +269,7 @@ class StrideCalibratorService: ObservableObject {
             self?.strideModel = model
         }
 
-        DistanceCalculator.shared.setStrideModel(model, fixedStride: nil)
+        DistanceCalculator.shared.setStrideModel(model)
 
         do {
             try await UserService.shared.saveStrideModel(model)

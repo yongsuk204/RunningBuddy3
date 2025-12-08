@@ -8,14 +8,11 @@ import Combine
 /*
  * Authentication State
  * - setupAuthStateListener(): Firebase 인증 상태 변경 감지 설정 및 자동 UserData 로드
- * - disableListener(): 리스너 일시 비활성화 (아이디 찾기 SMS 인증용)
- * - enableListener(): 리스너 다시 활성화
  *
  * Authentication Methods
  * - signUp(): 아이디/비밀번호 회원가입
  * - signIn(): 아이디/비밀번호 로그인 (마이그레이션 포함)
  * - signOut(): 로그아웃 처리
- * - deleteCurrentAccount(): 현재 계정 삭제
  * - sendPasswordReset(): 비밀번호 재설정 이메일 발송
  *
  * Error Handling
@@ -42,9 +39,6 @@ class AuthenticationManager: ObservableObject {
     // Purpose: Firebase Auth 상태 리스너 핸들
     private var authStateHandle: AuthStateDidChangeListenerHandle?
 
-    // Purpose: 리스너 활성화 플래그 👈 리스너는 Auth의 변화가 있을때만 자동감지함
-    private var isListenerEnabled: Bool = true
-
     // Purpose: Combine cancellables 저장
     private var cancellables = Set<AnyCancellable>()
 
@@ -66,20 +60,19 @@ class AuthenticationManager: ObservableObject {
     // MARK: - Authentication State
 
     // ═══════════════════════════════════════
-    // PURPOSE: Firebase 인증 상태 변경 감지 설정 👈 !!!리스너!!!
-    // Firebase Auth 서버에서 로그인유무를 확인해서 user 파라미터로 콜백해줌 👈 리스너는 이 콜백을 감지해서 값을 확인
+    // PURPOSE: Firebase 인증 상태 변경 감지 설정
     // ═══════════════════════════════════════
     private func setupAuthStateListener() {
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in
-                guard self?.isListenerEnabled == true else { return }
                 self?.currentUser = user
 
                 if let user = user {
+                    // 👈 인증상태가 있으면 userID로 로드된 데이터를 ui로 업데이트 userData, records, strideModel 3가지
                     do {
                         let (userData, records, strideModel) = try await self?.userService.getUserDataWithCalibration(userId: user.uid) ?? (nil, [], nil)
                         self?.currentUserData = userData
-                        
+
                         // 👈 StrideCalibratorService.shared 싱글톤 인스턴스의 두 변수에 데이터저장
                         // 👈 @Published 변수는 반드시 메인 스레드에서 업데이트해야 함
                         await MainActor.run {
@@ -88,12 +81,11 @@ class AuthenticationManager: ObservableObject {
                         }
 
                         if let model = strideModel {
-                            DistanceCalculator.shared.setStrideModel(model, fixedStride: nil)
+                            DistanceCalculator.shared.setStrideModel(model)
                         } else {
                             await StrideCalibratorService.shared.recalculateStrideModel()
                         }
                     } catch {
-                        // 👈 에러메시지를받아서 RootView에서 알람처리함
                         await MainActor.run {
                             self?.errorMessage = "사용자 데이터 로드 실패: \(error.localizedDescription)"
                         }
@@ -103,35 +95,6 @@ class AuthenticationManager: ObservableObject {
                 }
             }
         }
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 리스너 일시 비활성화 (아이디 찾기 SMS 인증용)
-    // ═══════════════════════════════════════
-    func disableListener() {
-        isListenerEnabled = false
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 리스너 다시 활성화
-    // ═══════════════════════════════════════
-    func enableListener() {
-        isListenerEnabled = true
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 현재 로그인된 계정 삭제 (임시 전화번호 인증 계정 정리용)
-    // ═══════════════════════════════════════
-    func deleteCurrentAccount() async throws {
-        guard let user = Auth.auth().currentUser else {
-            throw NSError(
-                domain: "AuthenticationManager",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "로그인된 사용자가 없습니다."]
-            )
-        }
-
-        try await user.delete()
     }
 
     // MARK: - Authentication Methods

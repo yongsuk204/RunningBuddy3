@@ -75,11 +75,11 @@ struct PasswordSetupModal: View {
                 .fontWeight(.bold)
                 .foregroundColor(.white)
         }
-        .infoAlert(
-            title: "비밀번호 설정",
-            isPresented: $showingPasswordInfo,
-            message: "\n• 비밀번호는 10자 이상 16자 이하로 설정해주세요\n• 영문 대소문자, 숫자, 특수문자를 포함해야 합니다\n• 예시) qwer1234!@#$"
-        )
+        .alert("비밀번호 설정", isPresented: $showingPasswordInfo) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("\n• 비밀번호는 10자 이상 16자 이하로 설정해주세요\n• 영문 대소문자, 숫자, 특수문자를 포함해야 합니다\n• 예시) qwer1234!@#$")
+        }
     }
 
     // MARK: - Password Input Section

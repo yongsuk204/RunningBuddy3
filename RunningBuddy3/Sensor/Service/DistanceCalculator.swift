@@ -10,7 +10,7 @@ import Combine
  * - resetDistance(): 거리 초기화
  *
  * Stride-Based Distance Estimation (Dynamic)
- * - setStrideModel(_:fixedStride:): 선형 회귀 모델 또는 고정 보폭 설정
+ * - setStrideModel(_:): 선형 회귀 모델 설정
  * - updateSteps(_:currentCadence:): 걸음 수 및 케이던스로 동적 보폭 계산
  */
 
@@ -53,9 +53,6 @@ class DistanceCalculator: ObservableObject {
 
     // Purpose: 선형 회귀 모델 (보폭 = α * 케이던스 + β)
     private var strideModel: StrideData?
-
-    // Purpose: 고정 보폭 (모델 없을 때 사용, 미터)
-    private var fixedStride: Double?
 
     // Purpose: 이전 걸음 수 (증가분 계산용)
     private var previousSteps: Int = 0
@@ -129,15 +126,12 @@ class DistanceCalculator: ObservableObject {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 선형 회귀 모델 또는 고정 보폭 설정
+    // PURPOSE: 선형 회귀 모델 설정
     // PARAMETERS:
     //   - model: 선형 회귀 모델 (보폭 = α * 케이던스 + β)
-    //   - fixedStride: 고정 보폭 (모델 없을 때 사용)
-    // NOTE: 둘 중 하나만 설정 (model 우선)
     // ═══════════════════════════════════════
-    func setStrideModel(_ model: StrideData?, fixedStride: Double?) {
+    func setStrideModel(_ model: StrideData?) {
         self.strideModel = model
-        self.fixedStride = fixedStride
     }
 
     // ═══════════════════════════════════════
@@ -147,29 +141,20 @@ class DistanceCalculator: ObservableObject {
     //   - currentCadence: 현재 케이던스 (spm)
     // FUNCTIONALITY:
     //   1. 걸음 수 증가분 계산
-    //   2. 현재 케이던스로 보폭 예측 (선형 모델 또는 고정값)
+    //   2. 현재 케이던스로 보폭 예측 (선형 모델)
     //   3. 증가분 × 예측 보폭 = 추가 거리
     //   4. 보폭 추정 거리 누적
     // ═══════════════════════════════════════
     func updateSteps(_ currentSteps: Int, currentCadence: Double) {
-        // Step 1: 모델 또는 고정 보폭 확인
-        guard strideModel != nil || fixedStride != nil else { return }
+        // Step 1: 모델 확인
+        guard let model = strideModel else { return }
 
         // Step 2: 걸음 수 증가분 계산
         let stepIncrement = currentSteps - previousSteps
         guard stepIncrement > 0 else { return }
 
-        // Step 3: 현재 보폭 예측
-        let predictedStride: Double
-        if let model = strideModel {
-            // 동적 보폭: stride = α * cadence + β
-            predictedStride = StrideModelCalculator.predictStride(model: model, cadence: currentCadence)
-        } else if let fixed = fixedStride {
-            // 고정 보폭
-            predictedStride = fixed
-        } else {
-            return
-        }
+        // Step 3: 현재 보폭 예측 (동적 보폭: stride = α * cadence + β)
+        let predictedStride = StrideModelCalculator.predictStride(model: model, cadence: currentCadence)
 
         // Step 4: 추가 거리 계산
         let addedDistance = Double(stepIncrement) * predictedStride

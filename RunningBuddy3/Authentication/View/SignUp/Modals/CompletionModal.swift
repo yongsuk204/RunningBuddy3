@@ -6,7 +6,6 @@ import SwiftUI
  * UI Components
  * - headerSection: 헤더 영역 (제목 및 설명)
  * - summarySection: 입력 정보 요약 표시
- * - confirmationSection: 약관 동의 및 안내 메시지
  * - navigationSection: 이전/회원가입 완료 버튼
  * - loadingOverlay: 회원가입 처리 중 로딩 화면
  *
@@ -31,7 +30,6 @@ struct CompletionModal: View {
         VStack(spacing: 24) {
             headerSection
             summarySection
-            confirmationSection
             Spacer()
             navigationSection
         }
@@ -124,34 +122,6 @@ struct CompletionModal: View {
             }
             .inputFieldStyle()
         }
-    }
-    
-    // MARK: - Confirmation Section
-    
-    private var confirmationSection: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Image(systemName: "checkmark.shield")
-                    .foregroundColor(.green)
-                Text("개인정보 처리방침 및 이용약관에 동의합니다")
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-            }
-            
-            HStack {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.white.opacity(0.6))
-                Text("입력하신 정보는 안전하게 암호화되어 저장됩니다")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
-                Spacer()
-            }
-        }
-        .inputFieldStyle()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.green.opacity(0.1))
-        )
     }
     
     // MARK: - Navigation Section
