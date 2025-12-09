@@ -7,7 +7,7 @@ extension Notification.Name {
     static let calibrationAutoComplete = Notification.Name("calibrationAutoComplete")
 }
 
-// Purpose: 100m 캘리브레이션 측정 세션 관리 및 선형 회귀 모델 계산
+// Purpose: 100m 캘리브레이션 측정 세션 관리
 // MARK: - 함수 목록
 /*
  * Session Management
@@ -17,18 +17,13 @@ extension Notification.Name {
  *
  * Data Collection
  * - addSensorData(_:): 센서 데이터 수집 (100m 전체 평균 계산용)
- *
- * Calibration History Management (Firestore)
- * - addCalibrationRecord(_:): 새 캘리브레이션 기록 추가 및 모델 재계산
- * - removeCalibrationRecord(at:): 캘리브레이션 기록 삭제 및 모델 재계산
- * - recalculateStrideModel(): 선형 회귀 모델 재계산 (5개 이상 시 동적 보폭 예측)
  */
 
-class StrideCalibratorService: ObservableObject {
+class CalibrationSession: ObservableObject {
 
     // MARK: - Singleton
 
-    static let shared = StrideCalibratorService()
+    static let shared = CalibrationSession()
 
     // MARK: - Published Properties
 
@@ -46,9 +41,6 @@ class StrideCalibratorService: ObservableObject {
 
     // Purpose: 캘리브레이션 기록 배열 (시간순 정렬)
     @Published var calibrationRecords: [CalibrationData] = []
-
-    // Purpose: 계산된 선형 회귀 모델 (보폭-케이던스)
-    @Published var strideModel: StrideData?
 
     // MARK: - Private Properties
 
@@ -100,7 +92,6 @@ class StrideCalibratorService: ObservableObject {
                 // 100m 도달 시 자동 종료
                 if distance >= 100.0 && !self.hasReached100m {
                     self.hasReached100m = true
-                    print("✅ 100m 도달! 측정 자동 종료")
 
                     // 자동 종료 알림 (0.5초 후)
                     // 👈 캘리브레이션뷰에 콜백으로 알려줌
@@ -119,7 +110,6 @@ class StrideCalibratorService: ObservableObject {
     // ═══════════════════════════════════════
     func stopCalibration() -> CalibrationData? {
         guard isCalibrating, let startTime = startTime else {
-            print("⚠️ 측정이 시작되지 않았습니다")
             return nil
         }
 
@@ -130,7 +120,7 @@ class StrideCalibratorService: ObservableObject {
         let finalTime = Date().timeIntervalSince(startTime)
         let finalSteps: Int
         let finalCadence: Double
-        
+
         if !allSensorData.isEmpty {
             // 전체 센서 데이터로 정확한 걸음 수 및 평균 케이던스 계산
             finalCadence = CadenceCalculator.shared.calculateAverageCadence(from: allSensorData)
@@ -138,13 +128,7 @@ class StrideCalibratorService: ObservableObject {
             // 걸음 수 계산: (피크 수 - 1) × 2
             let peaks = CadenceCalculator.shared.detectPeaksWithCondition(data: allSensorData)
             finalSteps = max(0, peaks.count - 1) * 2
-            
-            print("📊 100m 전체 데이터 분석 완료:")
-            print("   - 걸음 수: \(finalSteps)걸음 (피크 \(peaks.count)개)")
-            print("   - 평균 케이던스: \(String(format: "%.1f", finalCadence)) SPM")
-            print("   - 샘플 수: \(allSensorData.count)개")
         } else {
-            print("⚠️ 센서 데이터 없음 - 측정 실패")
             isCalibrating = false
             return nil
         }
@@ -153,7 +137,6 @@ class StrideCalibratorService: ObservableObject {
 
         // 유효성 검증 (최소 20걸음, 10초 이상)
         guard finalSteps >= 20, finalTime >= 10.0 else {
-            print("⚠️ 유효하지 않은 측정 데이터 (걸음 수: \(finalSteps), 시간: \(String(format: "%.1f", finalTime))초)")
             return nil
         }
 
@@ -177,8 +160,6 @@ class StrideCalibratorService: ObservableObject {
         hasReached100m = false
         isCalibrating = false
         allSensorData.removeAll()
-
-        print("🔄 캘리브레이션 데이터 초기화")
     }
 
     // ═══════════════════════════════════════
@@ -187,95 +168,5 @@ class StrideCalibratorService: ObservableObject {
     func addSensorData(_ data: SensorData) {
         guard isCalibrating else { return }
         allSensorData.append(data)
-    }
-
-
-    // MARK: - Calibration History Management
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 새 캘리브레이션 기록 추가 및 모델 재계산
-    // FUNCTIONALITY:
-    //   1. 기록 배열에 추가 (최신순)
-    //   2. Firestore에 저장
-    //   3. 선형 회귀 모델 재계산
-    //   4. DistanceCalculator에 모델 적용
-    // ═══════════════════════════════════════
-    func addCalibrationRecord(_ record: CalibrationData) async {
-        DispatchQueue.main.async { [weak self] in
-            self?.calibrationRecords.insert(record, at: 0)
-        }
-
-        do {
-            try await UserService.shared.saveCalibrationRecord(record)
-            print("✅ 캘리브레이션 기록 Firestore 저장 완료")
-        } catch {
-            print("⚠️ 캘리브레이션 기록 Firestore 저장 실패: \(error.localizedDescription)")
-        }
-
-        await recalculateStrideModel()
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 캘리브레이션 기록 삭제 및 모델 재계산
-    // ═══════════════════════════════════════
-    func removeCalibrationRecord(at index: Int) async {
-        guard index >= 0 && index < calibrationRecords.count else { return }
-
-        let recordToDelete = calibrationRecords[index]
-
-        DispatchQueue.main.async { [weak self] in
-            self?.calibrationRecords.remove(at: index)
-        }
-
-        do {
-            try await UserService.shared.deleteCalibrationRecord(recordToDelete)
-            print("✅ 캘리브레이션 기록 Firestore 삭제 완료")
-        } catch {
-            print("⚠️ 캘리브레이션 기록 Firestore 삭제 실패: \(error.localizedDescription)")
-        }
-
-        await recalculateStrideModel()
-    }
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 선형 회귀 모델 재계산 및 DistanceCalculator 적용
-    // STRATEGY:
-    //   - 5개 이상: 선형 회귀 모델 생성 (동적 보폭)
-    //   - 5개 미만: 보폭 추정 비활성화 + Firestore 모델 삭제
-    // ═══════════════════════════════════════
-    func recalculateStrideModel() async {
-        guard calibrationRecords.count >= 5 else {
-            DistanceCalculator.shared.setStrideModel(nil)
-
-            DispatchQueue.main.async { [weak self] in
-                self?.strideModel = nil
-            }
-
-            do {
-                try await UserService.shared.deleteStrideModel()
-            } catch {
-            }
-
-            return
-        }
-
-        // 5개 이상: 선형 회귀 모델 계산
-        guard let model = StrideModelCalculator.calculateStrideModel(from: calibrationRecords) else {
-            print("⚠️ 선형 회귀 모델 계산 실패")
-            return
-        }
-
-        DispatchQueue.main.async { [weak self] in
-            self?.strideModel = model
-        }
-
-        DistanceCalculator.shared.setStrideModel(model)
-
-        do {
-            try await UserService.shared.saveStrideModel(model)
-            print("✅ 선형 회귀 모델 Firestore 저장 완료")
-        } catch {
-            print("⚠️ 선형 회귀 모델 Firestore 저장 실패: \(error.localizedDescription)")
-        }
     }
 }

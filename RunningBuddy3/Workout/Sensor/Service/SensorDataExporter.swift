@@ -30,9 +30,6 @@ class SensorDataExporter: ObservableObject {
     // Purpose: 녹화 중인 센서 데이터 배열
     private var recordedData: [SensorData] = []
 
-    // Purpose: 녹화 시작 시간
-    private var recordingStartTime: Date?
-
     // MARK: - Data Collection
 
     // ═══════════════════════════════════════
@@ -40,7 +37,6 @@ class SensorDataExporter: ObservableObject {
     // ═══════════════════════════════════════
     func startRecording() {
         recordedData.removeAll()
-        recordingStartTime = Date()
         isRecording = true
         recordedCount = 0
         print("📊 센서 데이터 녹화 시작")
@@ -144,15 +140,5 @@ class SensorDataExporter: ObservableObject {
         try csvString.write(to: fileURL, atomically: true, encoding: .utf8)
 
         return fileURL
-    }
-
-    // MARK: - Helper Methods
-
-    // ═══════════════════════════════════════
-    // PURPOSE: 녹화 시간 계산 (초 단위)
-    // ═══════════════════════════════════════
-    func getRecordingDuration() -> TimeInterval? {
-        guard let startTime = recordingStartTime else { return nil }
-        return Date().timeIntervalSince(startTime)
     }
 }

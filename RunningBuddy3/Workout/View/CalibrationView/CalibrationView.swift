@@ -7,7 +7,7 @@ struct CalibrationView: View {
     // MARK: - Properties
 
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var calibrator = StrideCalibratorService.shared
+    @StateObject private var calibrator = CalibrationSession.shared
     @StateObject private var themeManager = ThemeManager.shared
     @StateObject private var connectivityManager = PhoneConnectivityManager.shared
 
@@ -409,12 +409,21 @@ struct CalibrationView: View {
         guard let data = calibrationData else { return }
 
         Task {
-            // 👈 실제로 저장하는함수
-            await calibrator.addCalibrationRecord(data)
+            // 1. Firestore 저장
+            try? await UserService.shared.saveCalibrationRecord(data)
+
+            // 2. 로컬 배열 업데이트 (최신순 정렬)
             await MainActor.run {
-                // 👈 부모뷰에 콜백으로 알려줌
+                CalibrationSession.shared.calibrationRecords.insert(data, at: 0)
+            }
+
+            // 3. 선형 모델 재계산
+            await StrideModelCalculator.shared.updateStrideModel(
+                from: CalibrationSession.shared.calibrationRecords
+            )
+
+            await MainActor.run {
                 onSaveComplete()
-                // 👈 닫기
                 dismiss()
             }
         }

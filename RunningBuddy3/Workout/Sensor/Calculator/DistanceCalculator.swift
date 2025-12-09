@@ -10,7 +10,6 @@ import Combine
  * - resetDistance(): 거리 초기화
  *
  * Stride-Based Distance Estimation (Dynamic)
- * - setStrideModel(_:): 선형 회귀 모델 설정
  * - updateSteps(_:currentCadence:): 걸음 수 및 케이던스로 동적 보폭 계산
  */
 
@@ -51,16 +50,13 @@ class DistanceCalculator: ObservableObject {
 
     // MARK: - Private Properties (Stride-Based)
 
-    // Purpose: 선형 회귀 모델 (보폭 = α * 케이던스 + β)
-    private var strideModel: StrideData?
-
     // Purpose: 이전 걸음 수 (증가분 계산용)
     private var previousSteps: Int = 0
 
     // MARK: - Initialization
 
     // Purpose: Singleton과 임시 인스턴스 생성을 위한 initializer (internal)
-    // NOTE: StrideCalibratorService에서 임시 GPS 거리 추적용으로 사용
+    // NOTE: CalibrationSessionService에서 임시 GPS 거리 추적용으로 사용
     init() {}
 
     // MARK: - Public Methods
@@ -126,15 +122,6 @@ class DistanceCalculator: ObservableObject {
     }
 
     // ═══════════════════════════════════════
-    // PURPOSE: 선형 회귀 모델 설정
-    // PARAMETERS:
-    //   - model: 선형 회귀 모델 (보폭 = α * 케이던스 + β)
-    // ═══════════════════════════════════════
-    func setStrideModel(_ model: StrideData?) {
-        self.strideModel = model
-    }
-
-    // ═══════════════════════════════════════
     // PURPOSE: 걸음 수 및 케이던스로 동적 보폭 기반 거리 계산
     // PARAMETERS:
     //   - currentSteps: 현재 누적 걸음 수
@@ -146,15 +133,15 @@ class DistanceCalculator: ObservableObject {
     //   4. 보폭 추정 거리 누적
     // ═══════════════════════════════════════
     func updateSteps(_ currentSteps: Int, currentCadence: Double) {
-        // Step 1: 모델 확인
-        guard let model = strideModel else { return }
+        // Step 1: 모델 확인 (StrideModelCalculator에서 직접 가져오기)
+        guard let model = StrideModelCalculator.shared.strideModel else { return }
 
         // Step 2: 걸음 수 증가분 계산
         let stepIncrement = currentSteps - previousSteps
         guard stepIncrement > 0 else { return }
 
         // Step 3: 현재 보폭 예측 (동적 보폭: stride = α * cadence + β)
-        let predictedStride = StrideModelCalculator.predictStride(model: model, cadence: currentCadence)
+        let predictedStride = StrideModelCalculator.shared.predictStride(model: model, cadence: currentCadence)
 
         // Step 4: 추가 거리 계산
         let addedDistance = Double(stepIncrement) * predictedStride

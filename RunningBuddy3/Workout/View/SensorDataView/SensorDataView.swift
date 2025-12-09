@@ -300,7 +300,7 @@ struct SensorDataView: View {
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
 
-                    if !StrideCalibratorService.shared.calibrationRecords.isEmpty {
+                    if !CalibrationSession.shared.calibrationRecords.isEmpty {
                         Text(String(format: "%.2f km", distanceCalculator.strideBasedDistance / 1000.0))
                             .font(.title2)
                             .fontWeight(.bold)

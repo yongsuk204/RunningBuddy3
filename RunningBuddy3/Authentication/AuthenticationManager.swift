@@ -73,17 +73,10 @@ class AuthenticationManager: ObservableObject {
                         let (userData, records, strideModel) = try await self?.userService.getUserDataWithCalibration(userId: user.uid) ?? (nil, [], nil)
                         self?.currentUserData = userData
 
-                        // 👈 StrideCalibratorService.shared 싱글톤 인스턴스의 두 변수에 데이터저장
                         // 👈 @Published 변수는 반드시 메인 스레드에서 업데이트해야 함
                         await MainActor.run {
-                            StrideCalibratorService.shared.calibrationRecords = records.sorted { $0.measuredAt > $1.measuredAt }
-                            StrideCalibratorService.shared.strideModel = strideModel
-                        }
-
-                        if let model = strideModel {
-                            DistanceCalculator.shared.setStrideModel(model)
-                        } else {
-                            await StrideCalibratorService.shared.recalculateStrideModel()
+                            CalibrationSession.shared.calibrationRecords = records.sorted { $0.measuredAt > $1.measuredAt }
+                            StrideModelCalculator.shared.strideModel = strideModel
                         }
                     } catch {
                         await MainActor.run {

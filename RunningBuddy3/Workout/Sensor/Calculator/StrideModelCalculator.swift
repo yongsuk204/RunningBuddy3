@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 // Purpose: 캘리브레이션 데이터로부터 선형 회귀를 통해 보폭-케이던스 모델 계산
 // MARK: - 함수 목록
@@ -6,9 +7,25 @@ import Foundation
  * Linear Regression
  * - calculateStrideModel(from:): 여러 캘리브레이션 기록으로부터 α, β 계산
  * - predictStride(model:cadence:): 케이던스로 보폭 예측
+ *
+ * Model Management
+ * - updateStrideModel(from:): 캘리브레이션 기록 변경 시 모델 재계산 및 동기화
  */
 
-class StrideModelCalculator {
+class StrideModelCalculator: ObservableObject {
+
+    // MARK: - Singleton
+
+    static let shared = StrideModelCalculator()
+
+    // MARK: - Published Properties
+
+    // Purpose: 계산된 선형 회귀 모델 (보폭-케이던스)
+    @Published var strideModel: StrideData?
+
+    // MARK: - Initialization
+
+    private init() {}
 
     // MARK: - Public Methods
 
@@ -19,9 +36,39 @@ class StrideModelCalculator {
     //   - cadence: 현재 케이던스 (spm)
     // RETURNS: 예측된 보폭 (미터)
     // ═══════════════════════════════════════
-    static func predictStride(model: StrideData, cadence: Double) -> Double {
+    func predictStride(model: StrideData, cadence: Double) -> Double {
         return model.alpha * cadence + model.beta
     }
+
+    // ═══════════════════════════════════════
+    // PURPOSE: 캘리브레이션 기록 변경 시 모델 재계산 및 동기화
+    // STRATEGY:
+    //   - 5개 이상: 선형 회귀 모델 계산
+    //   - 5개 미만: 보폭 추정 비활성화 + Firestore 모델 삭제
+    // ═══════════════════════════════════════
+    func updateStrideModel(from records: [CalibrationData]) async {
+        guard records.count >= 5 else {
+            DispatchQueue.main.async { [weak self] in
+                self?.strideModel = nil
+            }
+
+            try? await UserService.shared.deleteStrideModel()
+
+            return
+        }
+
+        guard let model = calculateStrideModel(from: records) else {
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.strideModel = model
+        }
+
+        try? await UserService.shared.saveStrideModel(model)
+    }
+
+    // MARK: - Private Methods
 
     // ═══════════════════════════════════════
     // PURPOSE: 선형 회귀를 통한 보폭-케이던스 모델 계산
@@ -36,7 +83,7 @@ class StrideModelCalculator {
     //   α = Σ[(x-x̄)(y-ȳ)] / Σ[(x-x̄)²]
     //   β = ȳ - α*x̄
     // ═══════════════════════════════════════
-    static func calculateStrideModel(from records: [CalibrationData]) -> StrideData? {
+    private func calculateStrideModel(from records: [CalibrationData]) -> StrideData? {
         // Step 1: 최소 5개 이상의 데이터 필요
         guard records.count >= 5 else {
             return nil
@@ -100,20 +147,5 @@ class StrideModelCalculator {
             sampleCount: records.count
         )
         return model
-    }
-
-    // MARK: - Helper Methods
-
-    // ═══════════════════════════════════════
-    // PURPOSE: R² 값 해석
-    // ═══════════════════════════════════════
-    private static func interpretRSquared(_ rSquared: Double) -> String {
-        switch rSquared {
-        case 0.9...1.0: return "매우 우수"
-        case 0.7..<0.9: return "우수"
-        case 0.5..<0.7: return "보통"
-        case 0.3..<0.5: return "낮음"
-        default: return "매우 낮음"
-        }
     }
 }

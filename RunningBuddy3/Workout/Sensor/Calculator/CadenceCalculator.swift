@@ -105,11 +105,7 @@ class CadenceCalculator: ObservableObject {
             DispatchQueue.main.async {
                 self.currentCadence = cadence
             }
-
-            print("📊 실시간 케이던스: \(String(format: "%.1f", cadence)) SPM, 총 걸음: \(self.currentSteps)걸음, 증가분: \(stepIncrement)걸음 (새 피크: \(newPeaksCount), 버퍼: \(self.dataBuffer.count)개)")
         }
-
-        print("▶️ 실시간 케이던스 모니터링 시작")
     }
 
     // ═══════════════════════════════════════
@@ -130,8 +126,6 @@ class CadenceCalculator: ObservableObject {
         updateTimer?.invalidate()
         updateTimer = nil
         dataBuffer.removeAll()
-
-        print("⏹️ 실시간 케이던스 모니터링 중지")
     }
 
     // ═══════════════════════════════════════
@@ -143,8 +137,6 @@ class CadenceCalculator: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             self?.currentCadence = finalCadence
         }
-
-        print("📊 최종 케이던스: \(String(format: "%.1f", finalCadence)) SPM (\(data.count)개 샘플)")
     }
 
     // MARK: - Cadence Calculation
@@ -182,7 +174,7 @@ class CadenceCalculator: ObservableObject {
     // ═══════════════════════════════════════
     // PURPOSE: 입각기 초반 피크 검출 (상태 머신: 양수 → 첫 음수만)
     // RETURNS: 피크 인덱스 배열
-    // NOTE: StrideCalibratorService에서도 사용 (걸음 수 계산)
+    // NOTE: CalibrationSessionService에서도 사용 (걸음 수 계산)
     // ═══════════════════════════════════════
     func detectPeaksWithCondition(data: [SensorData]) -> [Int] {
         var peaks: [Int] = []

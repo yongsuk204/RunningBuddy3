@@ -45,9 +45,6 @@ class PhoneConnectivityManager: NSObject, ObservableObject {
     // Purpose: 세션 활성화 상태
     @Published var isSessionActivated = false
 
-    // Purpose: 마지막 업데이트 시간
-    @Published var lastUpdateTime: Date?
-
     // MARK: - Private Properties
 
     // Purpose: WatchConnectivity 세션
@@ -207,11 +204,10 @@ extension PhoneConnectivityManager: WCSessionDelegate {
         // Step 3: 메인 스레드는 최소한만 사용 - Published 프로퍼티 업데이트만
         DispatchQueue.main.async { [weak self] in
             self?.receivedSensorData = sensorData
-            self?.lastUpdateTime = Date()
         }
 
         // Step 4: 캘리브레이션 측정 중이면 센서 데이터 수집
-        StrideCalibratorService.shared.addSensorData(sensorData)
+        CalibrationSession.shared.addSensorData(sensorData)
 
         // 디버그 로그 (주석처리 - 너무 빈번한 출력 방지)
 //        if let heartRate = sensorData.heartRate {

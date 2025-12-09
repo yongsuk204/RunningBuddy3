@@ -35,20 +35,6 @@ struct ProgressIndicator: View {
         }
     }
 
-    // MARK: - Step Titles View
-
-    @ViewBuilder
-    private var stepTitlesView: some View {
-        HStack {
-            ForEach(0..<min(stepTitles.count, totalSteps), id: \.self) { index in
-                Text(stepTitles[index])
-                    .font(.caption2)
-                    .foregroundColor(colorForStep(index))
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
-
     // MARK: - Progress Dots View
 
     private var progressDotsView: some View {

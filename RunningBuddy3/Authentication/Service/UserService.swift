@@ -15,10 +15,10 @@ import FirebaseAuth
  *
  * Calibration History Management
  * - saveCalibrationRecord(): 새 캘리브레이션 기록 추가 (subcollection)
- * - loadCalibrationRecords(): 모든 캘리브레이션 기록 로드
+ * - loadCalibrationRecords(): 모든 캘리브레이션 기록 로드 👈 추후 사용예정
  * - deleteCalibrationRecord(): 캘리브레이션 기록 삭제
  * - saveStrideModel(): 선형 회귀 모델 저장
- * - loadStrideModel(): 선형 회귀 모델 로드
+ * - loadStrideModel(): 선형 회귀 모델 로드 👈 추후 사용예정
  * - deleteStrideModel(): 선형 회귀 모델 삭제
  *
  * Data Migration
@@ -343,7 +343,6 @@ enum UserServiceError: LocalizedError {
     case fetchFailed(String)
     case updateFailed(String)
     case deleteFailed(String)
-    case searchFailed(String)
     case dataConversionFailed
     case userNotFound
     case notLoggedIn
@@ -358,8 +357,6 @@ enum UserServiceError: LocalizedError {
             return "사용자 데이터 업데이트 실패: \(message)"
         case .deleteFailed(let message):
             return "사용자 데이터 삭제 실패: \(message)"
-        case .searchFailed(let message):
-            return "사용자 검색 실패: \(message)"
         case .dataConversionFailed:
             return "데이터 변환 실패"
         case .userNotFound:

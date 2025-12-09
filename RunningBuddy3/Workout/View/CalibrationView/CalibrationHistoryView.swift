@@ -6,7 +6,7 @@ struct CalibrationHistoryView: View {
     // MARK: - Properties
 
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var calibrator = StrideCalibratorService.shared
+    @StateObject private var calibrator = CalibrationSession.shared
     @StateObject private var themeManager = ThemeManager.shared
 
     @State private var showingNewCalibration = false
@@ -246,9 +246,20 @@ struct CalibrationHistoryView: View {
     // PURPOSE: 기록 삭제
     // ═══════════════════════════════════════
     private func deleteRecord(_ record: CalibrationData) async {
-        if let index = calibrator.calibrationRecords.firstIndex(where: { $0.measuredAt == record.measuredAt }) {
-            await calibrator.removeCalibrationRecord(at: index)
+        // 1. Firestore 삭제
+        try? await UserService.shared.deleteCalibrationRecord(record)
+
+        // 2. 로컬 배열 업데이트
+        // NOTE: removeAll(where:)은 반환값이 없어 컴파일 경고 없음 👈
+        // 속도 최적화가 필요하면 `_ = await MainActor.run { remove(at:) }` 사용 가능 👈
+        await MainActor.run {
+            CalibrationSession.shared.calibrationRecords.removeAll { $0.measuredAt == record.measuredAt }
         }
+
+        // 3. 선형 모델 재계산
+        await StrideModelCalculator.shared.updateStrideModel(
+            from: CalibrationSession.shared.calibrationRecords
+        )
     }
 
     // ═══════════════════════════════════════
