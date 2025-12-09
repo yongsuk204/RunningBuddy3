@@ -158,46 +158,24 @@ extension PhoneConnectivityManager: WCSessionDelegate {
     // PURPOSE: Watch로부터 메시지 수신 (센서 데이터 또는 GPS 위치)
     // ═══════════════════════════════════════
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        // Step 1: 메시지 타입 확인
-        if let messageType = message["type"] as? String, messageType == "location" {
-            // GPS 위치 메시지 처리
-            if let latitude = message["latitude"] as? Double,
-               let longitude = message["longitude"] as? Double,
-               let altitude = message["altitude"] as? Double,
-               let horizontalAccuracy = message["horizontalAccuracy"] as? Double,
-               let verticalAccuracy = message["verticalAccuracy"] as? Double,
-               let speed = message["speed"] as? Double,
-               let course = message["course"] as? Double,
-               let timestampInterval = message["timestamp"] as? TimeInterval {
+        // Step 1: GPS 위치 메시지 처리
+        if let gpsData = GPSData.fromDictionary(message) {
+            let location = gpsData.toCLLocation()
+            
+            // 👈 워치로부터 받은 위치정보를 업데이트함
+            DispatchQueue.main.async { [weak self] in
+                self?.receivedLocation = location
 
-                let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-                let timestamp = Date(timeIntervalSince1970: timestampInterval)
-
-                let location = CLLocation(
-                    coordinate: coordinate,
-                    altitude: altitude,
-                    horizontalAccuracy: horizontalAccuracy,
-                    verticalAccuracy: verticalAccuracy,
-                    course: course,
-                    speed: speed,
-                    timestamp: timestamp
-                )
-
-                DispatchQueue.main.async { [weak self] in
-                    self?.receivedLocation = location
-
-                    // DistanceCalculator.shared로 GPS 위치 전달 (워밍업 + 캘리브레이션 공통)
-                    DistanceCalculator.shared.addLocation(location)
-                }
-
-                print("📍 GPS 위치 수신: (\(String(format: "%.6f", latitude)), \(String(format: "%.6f", longitude)))")
+                // DistanceCalculator.shared로 GPS 위치 전달 (실시간측정 + 캘리브레이션 공통)
+                DistanceCalculator.shared.addLocation(location)
             }
+
+            print("📍 GPS 위치 수신: (\(String(format: "%.6f", gpsData.latitude)), \(String(format: "%.6f", gpsData.longitude)))")
             return
         }
 
         // Step 2: 센서 데이터 메시지 처리
         guard let sensorData = SensorData.fromDictionary(message) else {
-            print("❌ 센서 데이터 변환 실패")
             return
         }
 

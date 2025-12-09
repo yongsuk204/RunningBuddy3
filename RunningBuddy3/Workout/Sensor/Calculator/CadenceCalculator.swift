@@ -142,9 +142,7 @@ class CadenceCalculator: ObservableObject {
     // MARK: - Cadence Calculation
 
     // ═══════════════════════════════════════
-    // PURPOSE: 센서 데이터 배열에서 평균 케이던스 계산 (SPM, 양발 기준)
-    // RETURNS: 평균 케이던스 (60~300 SPM 범위, 범위 외 0.0)
-    // NOTE: 왼발 착용 기준 2배 보정, 완성된 피크 간격만 사용
+    // PURPOSE: 센서 데이터 배열에서 평균 케이던스 계산
     // ═══════════════════════════════════════
     func calculateAverageCadence(from sensorData: [SensorData]) -> Double {
         // Step 1: 데이터 충분성 확인 (최소 20개 = 1초 @ 20Hz)
@@ -173,8 +171,6 @@ class CadenceCalculator: ObservableObject {
 
     // ═══════════════════════════════════════
     // PURPOSE: 입각기 초반 피크 검출 (상태 머신: 양수 → 첫 음수만)
-    // RETURNS: 피크 인덱스 배열
-    // NOTE: CalibrationSessionService에서도 사용 (걸음 수 계산)
     // ═══════════════════════════════════════
     func detectPeaksWithCondition(data: [SensorData]) -> [Int] {
         var peaks: [Int] = []

@@ -26,20 +26,17 @@ class CalibrationSession: ObservableObject {
     static let shared = CalibrationSession()
 
     // MARK: - Published Properties
-
-    // Purpose: 측정 진행 중 여부
+    
+    // Purpose: 측정 진행 중 여부 👈 ui 실시간 업데이트를 위해 퍼블리시 선언
     @Published var isCalibrating: Bool = false
-
     // Purpose: 측정 경과 시간 (초 단위)
     @Published var elapsedTime: Double = 0.0
-
     // Purpose: 현재 GPS 거리 (실시간 업데이트, 미터 단위)
     @Published var currentDistance: Double = 0.0
-
     // Purpose: 100m 도달 여부
     @Published var hasReached100m: Bool = false
 
-    // Purpose: 캘리브레이션 기록 배열 (시간순 정렬)
+    // Purpose: 캘리브레이션 기록 배열 (시간순 정렬) 👈 데이터 공유를 위해 퍼블리시 선언
     @Published var calibrationRecords: [CalibrationData] = []
 
     // MARK: - Private Properties
@@ -60,11 +57,6 @@ class CalibrationSession: ObservableObject {
 
     // ═══════════════════════════════════════
     // PURPOSE: 캘리브레이션 측정 시작
-    // FUNCTIONALITY:
-    //   - DistanceCalculator.shared 사용 (GPS 워밍업 완료된 인스턴스)
-    //   - 측정 시작 전 거리 초기화
-    //   - 센서 데이터 수집 (100m 전체 평균 계산용)
-    //   - 100m 도달 시 자동 종료
     // ═══════════════════════════════════════
     func startCalibration() {
         // Step 1: 측정 상태 초기화
@@ -105,8 +97,6 @@ class CalibrationSession: ObservableObject {
 
     // ═══════════════════════════════════════
     // PURPOSE: 캘리브레이션 측정 종료 및 결과 반환
-    // RETURNS: CalibrationData (유효하지 않은 측정이면 nil)
-    // VALIDATION: 최소 20걸음, 10초 이상 필요
     // ═══════════════════════════════════════
     func stopCalibration() -> CalibrationData? {
         guard isCalibrating, let startTime = startTime else {
@@ -164,6 +154,7 @@ class CalibrationSession: ObservableObject {
 
     // ═══════════════════════════════════════
     // PURPOSE: 센서 데이터 수집 (100m 전체 평균 계산용)
+    // 👈 워치에서 데이터를 받아서 변수에 넣음
     // ═══════════════════════════════════════
     func addSensorData(_ data: SensorData) {
         guard isCalibrating else { return }

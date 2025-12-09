@@ -112,18 +112,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             return
         }
 
-        // Step 2: 위치 데이터 딕셔너리 생성
-        let message: [String: Any] = [
-            "type": "location",
-            "latitude": location.coordinate.latitude,
-            "longitude": location.coordinate.longitude,
-            "altitude": location.altitude,
-            "horizontalAccuracy": location.horizontalAccuracy,
-            "verticalAccuracy": location.verticalAccuracy,
-            "speed": location.speed,
-            "course": location.course,
-            "timestamp": location.timestamp.timeIntervalSince1970
-        ]
+        // Step 2: CLLocation → GPSData 변환 후 딕셔너리 생성
+        let gpsData = GPSData(from: location)
+        let message = gpsData.toDictionary()
 
         // Step 3: iPhone으로 메시지 전송
         session.sendMessage(message, replyHandler: nil) { error in
