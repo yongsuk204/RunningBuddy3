@@ -96,10 +96,6 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 사용자 정보 + 캘리브레이션 기록 + 선형 모델 한 번에 조회
-    // RETURNS: (UserData, [CalibrationData], StrideData?)
-    // FUNCTIONALITY:
-    //   - Firestore 읽기 1회로 모든 데이터 로드
-    //   - 로그인 시 사용
     // ═══════════════════════════════════════
     func getUserDataWithCalibration(userId: String) async throws -> (UserData, [CalibrationData], StrideData?) {
         do {
@@ -178,11 +174,6 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 새 캘리브레이션 기록 추가 (배열에 추가)
-    // PARAMETERS:
-    //   - record: 새 캘리브레이션 데이터
-    // FUNCTIONALITY:
-    //   - users/{userId}/calibrationRecords 배열에 새 기록 추가
-    //   - averageStepLength를 명시적으로 저장 (선형회귀 모델용)
     // ═══════════════════════════════════════
     func saveCalibrationRecord(_ record: CalibrationData) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -200,9 +191,6 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 모든 캘리브레이션 기록 로드
-    // RETURNS: 캘리브레이션 기록 배열 (시간순)
-    // FUNCTIONALITY:
-    //   - users/{userId}/calibrationRecords 배열에서 로드
     // ═══════════════════════════════════════
     func loadCalibrationRecords() async throws -> [CalibrationData] {
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -230,10 +218,6 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 캘리브레이션 기록 삭제
-    // PARAMETERS:
-    //   - record: 삭제할 캘리브레이션 데이터 👈 인덱스 번호가 아니라 데이너 내용일치여부로 삭제함
-    // FUNCTIONALITY:
-    //   - users/{userId}/calibrationRecords 배열에서 해당 기록 제거
     // ═══════════════════════════════════════
     func deleteCalibrationRecord(_ record: CalibrationData) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -245,6 +229,7 @@ class UserService {
             .document(userId)
 
         // FieldValue.arrayRemove를 사용하여 배열에서 제거
+        // 👈 인덱스 번호가 아니라 데이너 내용일치여부로 삭제함
         try await documentRef.updateData([
             "calibrationRecords": FieldValue.arrayRemove([record.toDictionary(userId: userId)])
         ])
@@ -252,10 +237,6 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 선형 회귀 모델 저장
-    // PARAMETERS:
-    //   - model: 계산된 선형 회귀 모델
-    // FUNCTIONALITY:
-    //   - users/{userId}/strideModel 필드에 저장
     // ═══════════════════════════════════════
     func saveStrideModel(_ model: StrideData) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -292,8 +273,6 @@ class UserService {
 
     // ═══════════════════════════════════════
     // PURPOSE: 선형 회귀 모델 삭제
-    // FUNCTIONALITY:
-    //   - users/{userId}/strideModel 필드 삭제
     // ═══════════════════════════════════════
     func deleteStrideModel() async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
