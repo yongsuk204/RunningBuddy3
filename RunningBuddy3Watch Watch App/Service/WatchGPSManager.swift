@@ -68,8 +68,6 @@ class WatchGPSManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 
         // Step 6: 권한 요청 (Always 권한 - 백그라운드 GPS 추적용)
         locationManager.requestAlwaysAuthorization()
-
-        print("📍 WatchGPSManager 초기화 완료")
     }
 
     // MARK: - Public Methods
@@ -84,13 +82,11 @@ class WatchGPSManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func startTracking() {
         // Step 1: 권한 상태 확인
         let status = locationManager.authorizationStatus
-        print("📍 GPS 권한 상태: \(status.rawValue) (\(authorizationStatusString(status)))")
 
         // Step 2: 권한 상태에 따른 처리
         switch status {
         case .notDetermined:
             // 권한 요청 전 → 권한 요청 팝업 표시
-            print("📍 GPS 권한 요청 중...")
             shouldStartTracking = true
             locationManager.requestAlwaysAuthorization()
             // 권한 허용 시 locationManagerDidChangeAuthorization에서 자동 시작됨
@@ -105,7 +101,7 @@ class WatchGPSManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             startLocationUpdates()
 
         @unknown default:
-            print("⚠️ 알 수 없는 GPS 권한 상태")
+            break
         }
     }
 
@@ -118,8 +114,6 @@ class WatchGPSManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         DispatchQueue.main.async {
             self.isTracking = true
         }
-
-        print("▶️ GPS 추적 시작")
     }
 
     // ═══════════════════════════════════════
@@ -147,8 +141,6 @@ class WatchGPSManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         DispatchQueue.main.async {
             self.isTracking = false
         }
-
-        print("⏹️ GPS 추적 중지")
     }
 
     // MARK: - CLLocationManagerDelegate
@@ -169,8 +161,6 @@ class WatchGPSManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         DispatchQueue.main.async { [weak self] in
             self?.currentLocation = newLocation
         }
-
-        print("📍 GPS 위치 수신: (\(newLocation.coordinate.latitude), \(newLocation.coordinate.longitude)) accuracy: \(String(format: "%.1f", newLocation.horizontalAccuracy))m")
     }
 
     // ═══════════════════════════════════════
@@ -188,13 +178,11 @@ class WatchGPSManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     // ═══════════════════════════════════════
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        print("📍 GPS 권한 변경: \(status.rawValue) (\(authorizationStatusString(status)))")
 
         // 권한이 허용되고 추적 시작이 요청된 상태면 자동 시작
         if shouldStartTracking {
             switch status {
             case .authorizedAlways, .authorizedWhenInUse:
-                print("✅ GPS 권한 허용됨 - 추적 자동 시작")
                 shouldStartTracking = false
                 startLocationUpdates()
 

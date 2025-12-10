@@ -71,6 +71,7 @@ The project follows a **feature-based modular architecture** where related compo
     - `UserData.swift` - User model with Firestore serialization
   - `Sensor/` - Sensor and workout models
     - `SensorData.swift` - Watch sensor data model (shared with watchOS target)
+    - `GPSData.swift` - GPS location data model (shared with watchOS target)
     - `WorkoutData.swift` - Workout session data model
   - `Calibration/` - Calibration-related models
     - `CalibrationData.swift` - Stride calibration measurement data
@@ -111,6 +112,7 @@ The project follows a **feature-based modular architecture** where related compo
    - Bidirectional message passing: commands (iPhone → Watch), data (Watch → iPhone)
    - Event-driven architecture with `@Published` properties for reactive UI updates
    - CalibrationView monitors Watch connectivity with `.onChange(of: isWatchReachable)` for automatic GPS activation
+   - **Data Models**: `SensorData` and `GPSData` use `.toDictionary()` / `.fromDictionary()` pattern for WatchConnectivity serialization
 
 7. **Sensor Data Processing**: iPhone processes raw sensor data from Watch
    - `CadenceCalculator.shared` - Real-time cadence (steps per minute) from accelerometer/gyroscope
@@ -517,12 +519,29 @@ Text("다음")
   - `Service/WatchGPSManager.swift` - GPS location tracking
   - `Service/WatchConnectivityManager.swift` - Communication with iPhone
 
+### Shared Data Models (Multi-Target)
+Both `SensorData` and `GPSData` are shared between iPhone and Watch targets:
+
+**SensorData** - Accelerometer, gyroscope, heart rate data
+- Properties: `heartRate` (optional), `accelerometerX/Y/Z`, `gyroscopeX/Y/Z`, `timestamp`
+- Serialization: `.toDictionary()` → WatchConnectivity → `.fromDictionary()`
+- Target Membership: RunningBuddy3 + RunningBuddy3Watch Watch App
+
+**GPSData** - GPS location data
+- Properties: `latitude`, `longitude`, `altitude`, `horizontalAccuracy`, `verticalAccuracy`, `speed`, `course`, `timestamp`
+- Initializers: `init(location: CLLocation)` for Watch → `init(latitude:longitude:...)` for dictionary parsing
+- Conversion: `.toCLLocation()` converts back to CLLocation on iPhone
+- **Important**: Uses `init(location:)` not `init(from:)` to avoid conflict with `Codable` protocol
+- Target Membership: RunningBuddy3 + RunningBuddy3Watch Watch App
+
 ### Watch-to-iPhone Data Flow
-1. Watch collects sensor data (heart rate, motion) at high frequency
-2. Watch tracks GPS location with accuracy monitoring
-3. `WatchConnectivityManager` sends data to iPhone via `WCSession.sendMessage()`
-4. iPhone's `PhoneConnectivityManager` receives and processes data
-5. iPhone displays real-time metrics and map visualization
+1. Watch collects sensor data (heart rate, motion) at high frequency (20Hz)
+2. Watch tracks GPS location with accuracy monitoring (3m distance filter)
+3. `WatchConnectivityManager` serializes data models to dictionaries via `.toDictionary()`
+4. Data sent to iPhone via `WCSession.sendMessage()` (requires Watch reachability)
+5. iPhone's `PhoneConnectivityManager` receives dictionaries and deserializes via `.fromDictionary()`
+6. iPhone processes data through `CadenceCalculator`, `DistanceCalculator`, etc.
+7. iPhone displays real-time metrics and map visualization
 
 ### Workout Control Flow
 1. User starts workout on iPhone (taps play button in SensorDataView toolbar)
@@ -624,3 +643,51 @@ CompactStatusCard.gpsStatus(location: location, isActive: true)
 ```
 
 This pattern is preferred over computed properties that simply wrap component initialization.
+
+## Data Sharing Architecture (iPhone ↔ Watch)
+
+### Single-Source Data Flow Pattern
+The app uses an efficient **single data stream** architecture where GPS and sensor data are collected once and shared across features:
+
+**GPS Data Sharing** (Already Implemented):
+```swift
+// Watch sends GPS → iPhone receives → Single processor
+Watch: WatchGPSManager → WatchConnectivityManager.sendLocation()
+iPhone: PhoneConnectivityManager receives → DistanceCalculator.shared.addLocation()
+```
+- ✅ `DistanceCalculator.shared` is the **single source** for GPS distance calculations
+- ✅ Both real-time workout and calibration use the same `totalDistance` property
+- ✅ No duplicate GPS processing - efficient and consistent
+
+**Sensor Data Sharing** (Already Implemented):
+```swift
+// Watch sends sensor data → iPhone receives → Multiple processors
+Watch: WatchSensorManager → WatchConnectivityManager.sendSensorData()
+iPhone: PhoneConnectivityManager receives → {
+    1. receivedSensorData (@Published) for UI updates
+    2. CalibrationSession.addSensorData() for 100m calibration storage
+    3. CadenceCalculator.addSensorData() for real-time cadence (10s sliding window)
+}
+```
+
+**Why Separate Processing Paths**:
+- `CadenceCalculator`: **Memory efficient** (10s sliding window, 3s update cycle)
+- `CalibrationSession`: **Accuracy focused** (stores all data for 100m, single calculation at end)
+- Different purposes require different data retention strategies
+
+### Best Practices for Data Sharing
+1. **Push Model (Current)**: Direct function calls for immediate data transfer
+   - ✅ Zero latency, no data loss at 20Hz sensor rate
+   - ✅ Minimal memory overhead
+   - Used for: `CalibrationSession.addSensorData(sensorData)`
+
+2. **Avoid @Published Subscription** for high-frequency data:
+   - ❌ 20Hz updates would trigger excessive UI re-renders
+   - ❌ Combine pipeline overhead for every sensor reading
+   - ❌ Risk of data loss if main thread is busy
+   - **Exception**: `receivedSensorData` is @Published for **display only** (latest value)
+
+3. **Shared Singleton Pattern**:
+   - `DistanceCalculator.shared` - GPS distance (shared by workout & calibration)
+   - `CadenceCalculator.shared` - Real-time cadence (shared by all workout views)
+   - Single instance = consistent state across app

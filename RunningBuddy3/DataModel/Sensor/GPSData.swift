@@ -41,9 +41,32 @@ struct GPSData: Codable, Equatable {
     // MARK: - Initialization
 
     // ═══════════════════════════════════════
+    // PURPOSE: 모든 프로퍼티로 GPSData 생성 (내부용)
+    // ═══════════════════════════════════════
+    init(
+        latitude: Double,
+        longitude: Double,
+        altitude: Double,
+        horizontalAccuracy: Double,
+        verticalAccuracy: Double,
+        speed: Double,
+        course: Double,
+        timestamp: Date
+    ) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.altitude = altitude
+        self.horizontalAccuracy = horizontalAccuracy
+        self.verticalAccuracy = verticalAccuracy
+        self.speed = speed
+        self.course = course
+        self.timestamp = timestamp
+    }
+
+    // ═══════════════════════════════════════
     // PURPOSE: CLLocation에서 GPSData 생성
     // ═══════════════════════════════════════
-    init(from location: CLLocation) {
+    init(location: CLLocation) {
         self.latitude = location.coordinate.latitude
         self.longitude = location.coordinate.longitude
         self.altitude = location.altitude

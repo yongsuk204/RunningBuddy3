@@ -106,8 +106,6 @@ class WatchSensorManager: NSObject, ObservableObject {
         await MainActor.run {
             isMonitoring = true
         }
-
-        print("✅ 센서 모니터링 시작 (Workout Session 기반)")
     }
 
     // ═══════════════════════════════════════
@@ -123,8 +121,6 @@ class WatchSensorManager: NSObject, ObservableObject {
         Task { [weak self] in
             await self?.performSensorCleanup()
         }
-
-        print("⏹️ 센서 모니터링 중지 (UI 즉시 반영)")
     }
 
     // ═══════════════════════════════════════
@@ -163,8 +159,6 @@ class WatchSensorManager: NSObject, ObservableObject {
 
         // Step 5: Builder 시작 (심박수 수집 시작) 👈 이부분에 의해서 심박수 측정이 시작됨 델리게이트 감지
         try await builder.beginCollection(at: Date())
-
-        print("✅ Workout 세션 시작 (Always-On Display 활성화)")
     }
 
     // ═══════════════════════════════════════
@@ -188,8 +182,6 @@ class WatchSensorManager: NSObject, ObservableObject {
         // Step 3: 참조 제거
         workoutSession = nil
         workoutBuilder = nil
-
-        print("⏹️ Workout 세션 종료")
     }
 
     // MARK: - Motion Monitoring
@@ -200,8 +192,6 @@ class WatchSensorManager: NSObject, ObservableObject {
     // ═══════════════════════════════════════
     private func startMotionUpdates() {
         // Step 1: 디바이스 모션 사용 가능 여부 확인
-        print("🔍 디바이스 모션 사용 가능 여부: \(WatchSensorManager.motionManager.isDeviceMotionAvailable)")
-
         guard WatchSensorManager.motionManager.isDeviceMotionAvailable else {
             print("❌ 디바이스 모션을 사용할 수 없습니다")
             Task { @MainActor [weak self] in
@@ -226,8 +216,6 @@ class WatchSensorManager: NSObject, ObservableObject {
                 self?.createAndPublishSensorData(motion: motion)
             }
         }
-
-        print("✅ 디바이스 모션 시작 (가속도계 + 자이로스코프, 이벤트 기반)")
     }
 
     // ═══════════════════════════════════════
@@ -236,7 +224,6 @@ class WatchSensorManager: NSObject, ObservableObject {
     private func stopMotionUpdates() {
         WatchSensorManager.motionManager.stopDeviceMotionUpdates()
         latestDeviceMotion = nil
-        print("📱 디바이스 모션 중지")
     }
 
     // MARK: - Sensor Data Update
@@ -304,7 +291,6 @@ class WatchSensorManager: NSObject, ObservableObject {
 
         do {
             try await healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead)
-            print("✅ HealthKit 권한 승인 (읽기 + 쓰기)")
         } catch {
             print("❌ HealthKit 권한 거부: \(error)")
             throw error
@@ -325,18 +311,7 @@ extension WatchSensorManager: HKWorkoutSessionDelegate {
         from fromState: HKWorkoutSessionState,
         date: Date
     ) {
-        Task { @MainActor in
-            switch toState {
-            case .running:
-                print("✅ Workout 세션 실행 중")
-            case .ended:
-                print("⏹️ Workout 세션 종료됨")
-            case .paused:
-                print("⏸️ Workout 세션 일시정지")
-            default:
-                break
-            }
-        }
+        // Workout state changes are handled silently
     }
 
     // ═══════════════════════════════════════

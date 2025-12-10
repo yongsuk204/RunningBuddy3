@@ -42,20 +42,17 @@ class HeadingManager: NSObject, ObservableObject {
     // Purpose: heading 업데이트 시작
     func startUpdatingHeading() {
         guard CLLocationManager.headingAvailable() else {
-            print("⚠️ 나침반 기능을 사용할 수 없습니다")
             return
         }
 
         locationManager.startUpdatingHeading()
         isUpdating = true
-        print("🧭 나침반 업데이트 시작")
     }
 
     // Purpose: heading 업데이트 중지
     func stopUpdatingHeading() {
         locationManager.stopUpdatingHeading()
         isUpdating = false
-        print("🧭 나침반 업데이트 중지")
     }
 }
 

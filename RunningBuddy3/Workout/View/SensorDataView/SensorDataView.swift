@@ -261,7 +261,6 @@ struct SensorDataView: View {
             if !isProgrammaticCameraUpdate && (mapMode == .automatic || mapMode == .heading) {
                 mapMode = .manual
                 headingManager.stopUpdatingHeading()
-                print("📍 사용자 조작 감지 → 수동 모드 전환")
             }
         }
         .ignoresSafeArea()
@@ -396,7 +395,6 @@ struct SensorDataView: View {
                 updateCameraPosition()
             }
         }
-        print("📍 지도 모드 변경: \(mapMode.description)")
     }
 
     // MARK: - Helper Methods
@@ -430,8 +428,6 @@ struct SensorDataView: View {
                         heading: adjustedHeading
                     )
                 )
-
-                print("🧭 Heading \(String(format: "%.0f", rawHeading))°")
             }
         }
 
@@ -457,8 +453,6 @@ struct SensorDataView: View {
         exporter.startRecording()
         cadenceCalculator.startRealtimeMonitoring()
         distanceCalculator.resetDistance()
-
-        print("▶️ 워치 운동 측정 시작")
     }
 
     private func stopWorkoutMonitoring() {
@@ -475,8 +469,6 @@ struct SensorDataView: View {
             alertMessage = "측정이 완료되었습니다\n\(cadenceText)(\(data.count)개 샘플)"
             showingAlert = true
         }
-
-        print("⏹️ 워치 운동 측정 중지")
     }
 
     private func stopRecordingAndExport() {

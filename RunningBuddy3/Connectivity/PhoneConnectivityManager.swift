@@ -161,7 +161,7 @@ extension PhoneConnectivityManager: WCSessionDelegate {
         // Step 1: GPS 위치 메시지 처리
         if let gpsData = GPSData.fromDictionary(message) {
             let location = gpsData.toCLLocation()
-            
+
             // 👈 워치로부터 받은 위치정보를 업데이트함
             DispatchQueue.main.async { [weak self] in
                 self?.receivedLocation = location
@@ -174,7 +174,7 @@ extension PhoneConnectivityManager: WCSessionDelegate {
             return
         }
 
-        // Step 2: 센서 데이터 메시지 처리
+        // Step 2: 센서 데이터 메시지 처리 👈 워치로부터 받은 센서데이터를 업데이트함
         guard let sensorData = SensorData.fromDictionary(message) else {
             return
         }

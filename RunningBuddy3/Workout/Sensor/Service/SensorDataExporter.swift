@@ -39,7 +39,6 @@ class SensorDataExporter: ObservableObject {
         recordedData.removeAll()
         isRecording = true
         recordedCount = 0
-        print("📊 센서 데이터 녹화 시작")
     }
 
     // ═══════════════════════════════════════
@@ -48,7 +47,6 @@ class SensorDataExporter: ObservableObject {
     func stopRecording() -> [SensorData] {
         isRecording = false
         let data = recordedData
-        print("📊 센서 데이터 녹화 중지 (\(data.count)개 샘플)")
         return data
     }
 
@@ -74,7 +72,6 @@ class SensorDataExporter: ObservableObject {
         // Step 2: 파일로 저장
         let fileURL = try saveToFile(csvContent)
 
-        print("✅ CSV 파일 저장 완료: \(fileURL.path)")
         return fileURL
     }
 

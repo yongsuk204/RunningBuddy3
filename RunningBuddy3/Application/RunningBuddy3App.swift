@@ -34,7 +34,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Step 1: Firebase 초기화
         // GoogleService-Info.plist 파일을 읽어 Firebase 서비스를 설정
         FirebaseApp.configure()
-        print("Firebase App configured")
 
         return true
     }

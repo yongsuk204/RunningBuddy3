@@ -56,6 +56,7 @@
 		BBCC46652EE59D26008646B1 /* Exceptions for "RunningBuddy3" folder in "RunningBuddy3Watch Watch App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				DataModel/Sensor/GPSData.swift,
 				DataModel/Sensor/SensorData.swift,
 			);
 			target = BBA989972E7B1E4E000253C4 /* RunningBuddy3Watch Watch App */;
