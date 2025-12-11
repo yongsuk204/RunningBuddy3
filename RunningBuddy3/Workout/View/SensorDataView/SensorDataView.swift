@@ -7,20 +7,21 @@ import MapKit
 /*
  * View Components
  * - body: 메인 뷰 (지도 + 수치 오버레이)
- * - emptyMapView: GPS 데이터 없을 때 표시
- * - fullScreenMap: 전체 화면 지도 (경로 + 마커)
- * - metricsOverlay: 상단 상태 바 (팩토리 메서드 사용) + 하단 통합 수치 카드
+ * - mainContent: 지도 + 오버레이 레이아웃
+ * - emptyMapView: GPS 데이터 없을 때 표시 (그라데이션 배경 포함)
+ * - fullScreenMap: 전체 화면 지도 (경로 + 마커 + 카메라 제어)
+ * - metricsOverlay: 상태 카드 + 보폭 거리 카드 + 통합 수치 카드
  * - workoutControlButton: 운동 시작/중지 버튼
  * - recordButton: 데이터 기록 버튼
  *
- * Event Handlers
- * - handleDistanceTap(): 지도 모드 전환 (자동 → 수동 → 방향)
- * - startWorkoutMonitoring(): 워치 운동 측정 시작
- * - stopWorkoutMonitoring(): 워치 운동 측정 중지
- * - stopRecordingAndExport(): 기록 중지 및 CSV 내보내기
+ * Action Handlers
+ * - handleDistanceTap(): 지도 모드 순환 (자동 → 수동 → 방향 → 자동)
+ * - startWorkoutMonitoring(): 워치 운동 시작 + 계산기 초기화
+ * - stopWorkoutMonitoring(): 워치 운동 중지 + 평균 케이던스 계산
+ * - stopRecordingAndExport(): 기록 중지 + CSV 내보내기
  *
  * Helper Methods
- * - updateCameraPosition(): 지도 카메라 위치 업데이트
+ * - updateCameraPosition(): 지도 모드별 카메라 위치 업데이트
  */
 struct SensorDataView: View {
 
@@ -93,7 +94,8 @@ struct SensorDataView: View {
         return true
     }
 
-    // Purpose: 지도 영역 계산 (한 번의 순회로 최적화)
+    // Purpose: 지도 영역 계산
+    // computed property (계산 프로퍼티)를 사용 👈 변수를 참조할때마다 계산함 값을 메모리에 저장하지않고 계산함
     private var mapRegion: MKCoordinateRegion? {
         guard !locations.isEmpty else { return nil }
 
@@ -143,16 +145,23 @@ struct SensorDataView: View {
                 }
             }
             .onChange(of: connectivityManager.receivedSensorData) { oldValue, newValue in
-                handleSensorDataChange(newValue)
+                if let data = newValue {
+                    exporter.addSensorData(data)
+                    cadenceCalculator.addSensorData(data)
+                }
             }
             .onChange(of: connectivityManager.receivedLocation) { oldValue, newValue in
-                handleLocationChange(newValue)
+                if let location = newValue {
+                    distanceCalculator.addLocation(location)
+                }
             }
             .onChange(of: locations.count) { oldValue, newValue in
                 updateCameraPosition()
             }
             .onChange(of: headingManager.currentHeading) { oldValue, newValue in
-                handleHeadingChange()
+                if mapMode == .heading {
+                    updateCameraPosition()
+                }
             }
             .sheet(isPresented: $showingShareSheet) {
                 if let url = csvFileURL {
@@ -164,20 +173,13 @@ struct SensorDataView: View {
             } message: {
                 Text(alertMessage)
             }
-            .onAppear {
-                handleViewAppear()
-            }
             .onDisappear {
-                handleViewDisappear()
+                headingManager.stopUpdatingHeading()
             }
     }
 
     private var mainContent: some View {
         ZStack {
-            // 배경 그라데이션
-            Color.clear
-                .appGradientBackground()
-
             // 전체 화면 지도
             if locations.isEmpty {
                 emptyMapView
@@ -193,18 +195,23 @@ struct SensorDataView: View {
     // MARK: - Empty Map View
 
     private var emptyMapView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "location.slash")
-                .font(.system(size: 60))
-                .foregroundColor(.white.opacity(0.3))
+        ZStack {
+            Color.clear
+                .appGradientBackground()
 
-            Text("GPS 데이터 수집 중...")
-                .font(.headline)
-                .foregroundColor(.white.opacity(0.8))
+            VStack(spacing: 16) {
+                Image(systemName: "location.slash")
+                    .font(.system(size: 60))
+                    .foregroundColor(.white.opacity(0.3))
 
-            Text("운동을 시작하면 경로가 표시됩니다")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.6))
+                Text("GPS 데이터 수집 중...")
+                    .font(.headline)
+                    .foregroundColor(.white.opacity(0.8))
+
+                Text("운동을 시작하면 경로가 표시됩니다")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
         }
     }
 
@@ -220,11 +227,11 @@ struct SensorDataView: View {
 
             // 시작 위치 마커
             if let start = startLocation {
-                Annotation("시작", coordinate: start) {
+                Annotation("", coordinate: start) {
                     ZStack {
                         Circle()
                             .fill(.green)
-                            .frame(width: 30, height: 30)
+                            .frame(width: 10, height: 10)
 
                         Image(systemName: "figure.run")
                             .foregroundColor(.white)
@@ -237,15 +244,11 @@ struct SensorDataView: View {
             if let current = currentLocation,
                let start = startLocation,
                current.latitude != start.latitude || current.longitude != start.longitude {
-                Annotation("현재", coordinate: current) {
+                Annotation("", coordinate: current) {
                     ZStack {
                         Circle()
                             .fill(.red)
-                            .frame(width: 30, height: 30)
-                            .overlay(
-                                Circle()
-                                    .stroke(.white, lineWidth: 2)
-                            )
+                            .frame(width: 10, height: 10)
 
                         Image(systemName: "location.fill")
                             .foregroundColor(.white)
@@ -256,8 +259,8 @@ struct SensorDataView: View {
         }
         .mapStyle(.standard(elevation: .realistic))
         .onMapCameraChange(frequency: .onEnd) { _ in
-            // 사용자가 지도를 조작했을 때만 수동 모드로 전환
-            // (프로그래밍 방식 업데이트는 무시)
+            // 사용자가 지도를 조작했을 때만 수동 모드로 전환 👈
+            // isProgrammaticCameraUpdate == false 이면서 자동 혹은 헤딩 일때
             if !isProgrammaticCameraUpdate && (mapMode == .automatic || mapMode == .heading) {
                 mapMode = .manual
                 headingManager.stopUpdatingHeading()
@@ -327,7 +330,9 @@ struct SensorDataView: View {
                 cadence: cadenceCalculator.currentCadence,
                 distance: distanceCalculator.totalDistance,
                 mapMode: mapMode,
-                onDistanceTap: handleDistanceTap
+                
+                // 👈 자식뷰에서 onDistanceTap() 호출하면 부모뷰에 있는 handleDistanceTap함수 실행
+                onDistanceTap: handleDistanceTap 
             )
             .padding(.horizontal)
         }
@@ -373,32 +378,9 @@ struct SensorDataView: View {
         }
     }
 
-    // MARK: - Metric Button Handlers
-
-    // Purpose: 거리 버튼 탭 핸들러 (지도 모드 순환: 자동 → 수동 → 방향 → 자동)
-    private func handleDistanceTap() {
-        withAnimation {
-            // Step 1: 다음 모드로 전환
-            mapMode = mapMode.next
-
-            // Step 2: heading 업데이트 관리
-            if mapMode == .heading {
-                // 방향 모드로 전환 시 나침반 업데이트 시작
-                headingManager.startUpdatingHeading()
-            } else {
-                // 다른 모드로 전환 시 나침반 업데이트 중지
-                headingManager.stopUpdatingHeading()
-            }
-
-            // Step 3: 자동 또는 방향 모드일 때 현재 위치로 이동
-            if mapMode == .automatic || mapMode == .heading {
-                updateCameraPosition()
-            }
-        }
-    }
-
     // MARK: - Helper Methods
 
+    // Purpose: 지도 모드별 카메라 위치 업데이트
     private func updateCameraPosition() {
         // Step 1: 프로그래밍 방식 업데이트임을 표시
         isProgrammaticCameraUpdate = true
@@ -440,6 +422,9 @@ struct SensorDataView: View {
         }
     }
 
+    // MARK: - Action Handlers
+
+    // Purpose: 워치 운동 측정 시작 + 계산기 초기화
     private func startWorkoutMonitoring() {
         guard connectivityManager.isWatchReachable else {
             alertMessage = "Apple Watch가 연결되지 않았습니다"
@@ -455,6 +440,7 @@ struct SensorDataView: View {
         distanceCalculator.resetDistance()
     }
 
+    // Purpose: 워치 운동 측정 중지 + 평균 케이던스 계산
     private func stopWorkoutMonitoring() {
         connectivityManager.sendCommand(.stop)
         isWatchMonitoring = false
@@ -471,6 +457,7 @@ struct SensorDataView: View {
         }
     }
 
+    // Purpose: 기록 중지 + CSV 내보내기
     private func stopRecordingAndExport() {
         let data = exporter.stopRecording()
 
@@ -490,36 +477,26 @@ struct SensorDataView: View {
         }
     }
 
-    // MARK: - Event Handlers
+    // Purpose: 지도 모드 순환 (자동 → 수동 → 방향 → 자동)
+    private func handleDistanceTap() {
+        withAnimation {
+            // Step 1: 다음 모드로 전환
+            mapMode = mapMode.next
 
-    private func handleSensorDataChange(_ data: SensorData?) {
-        if let data = data {
-            exporter.addSensorData(data)
-            cadenceCalculator.addSensorData(data)
+            // Step 2: heading 업데이트 관리
+            if mapMode == .heading {
+                // 방향 모드로 전환 시 나침반 업데이트 시작
+                headingManager.startUpdatingHeading()
+            } else {
+                // 다른 모드로 전환 시 나침반 업데이트 중지
+                headingManager.stopUpdatingHeading()
+            }
+
+            // Step 3: 자동 또는 방향 모드일 때 현재 위치로 이동
+            if mapMode == .automatic || mapMode == .heading {
+                updateCameraPosition()
+            }
         }
-    }
-
-    private func handleLocationChange(_ location: CLLocation?) {
-        if let location = location {
-            distanceCalculator.addLocation(location)
-        }
-    }
-
-    private func handleHeadingChange() {
-        // 방향 모드일 때만 heading 변화에 따라 카메라 업데이트
-        if mapMode == .heading {
-            updateCameraPosition()
-        }
-    }
-
-    private func handleViewAppear() {
-        print("📱 SensorDataView 진입 - Watch 연결 상태: \(connectivityManager.isWatchReachable)")
-        // 캘리브레이션 모델은 MainAppView에서 자동 로드됨
-    }
-
-    private func handleViewDisappear() {
-        // 뷰가 사라질 때 heading 업데이트 중지
-        headingManager.stopUpdatingHeading()
     }
 }
 
@@ -537,12 +514,4 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-// MARK: - Preview
-
-#Preview("SensorDataView") {
-    NavigationStack {
-        SensorDataView()
-    }
 }

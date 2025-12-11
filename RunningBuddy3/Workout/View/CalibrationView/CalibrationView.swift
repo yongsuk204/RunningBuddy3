@@ -93,7 +93,7 @@ struct CalibrationView: View {
             }
         }
         .onChange(of: connectivityManager.receivedLocation) { _, newValue in
-            checkGPSReady(newValue)  // GPS 워밍업 체크
+            checkGPSReady(newValue)  // GPS 워밍업 체크 👈 워밍업을 계속 감지하지만 함수내에서 가드문으로 차단함
         }
         .onChange(of: connectivityManager.isWatchReachable) { _, isReachable in
             // Watch가 포그라운드로 전환되면 GPS/센서 활성화
@@ -399,7 +399,7 @@ struct CalibrationView: View {
     private func handleStop() {
         connectivityManager.sendCommand(.stop)
         if let result = calibrator.stopCalibration() {
-            calibrationData = result
+            calibrationData = result // 👈 캘리브레이션값 해당변수에 담김
             showingCompletionAlert = true
         }
     }

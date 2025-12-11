@@ -12,18 +12,7 @@ import Combine
  *
  * Cadence Calculation
  * - calculateAverageCadence(from:): 센서 데이터 배열에서 평균 케이던스 계산 (SPM, 양발 기준)
- *
- * Apple Watch Mounting Specification
- * - 장착 위치: 왼쪽 발목 안쪽 복사뼈 바로 위쪽
- * - 좌표계 (Device Frame):
- *   • +X축: 발바닥 방향 (수평면의 회전축)
- *   • +Y축: 정면 방향 (관상면의 회전축)
- *   • +Z축: 오른쪽 발 방향 (시상면의 회전축)
- *
- * Algorithm Overview
- * - 상태 머신으로 입각기 초반 피크 검출 (양수 → 첫 음수만)
- * - 주요 축: Gyro Z (발 회전), Accel Y (전후 스윙)
- * - SPM = (총 걸음 수 / 런닝 시간) × 60, 총 걸음 수 = (피크 수 - 1) × 2
+ * - detectPeaksWithCondition(data:): 입각기 초반 피크 검출 (상태 머신: 양수 → 첫 음수만)
  */
 
 class CadenceCalculator: ObservableObject {

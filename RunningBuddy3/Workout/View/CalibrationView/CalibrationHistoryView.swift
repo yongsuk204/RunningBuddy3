@@ -51,7 +51,9 @@ struct CalibrationHistoryView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .sheet(isPresented: $showingNewCalibration) {
-            CalibrationView(calibrationData: $newCalibrationData) {}
+            CalibrationView(calibrationData: $newCalibrationData) {
+                showingNewCalibration = false
+            }
         }
         .alert("기록 삭제", isPresented: $showingDeleteAlert) {
             Button("취소", role: .cancel) {}

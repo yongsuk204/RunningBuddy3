@@ -55,21 +55,13 @@ class DistanceCalculator: ObservableObject {
 
     // MARK: - Initialization
 
-    // Purpose: Singleton과 임시 인스턴스 생성을 위한 initializer (internal)
-    // NOTE: CalibrationSessionService에서 임시 GPS 거리 추적용으로 사용
+    // Purpose: Singleton과 인스턴스 생성을 위한 initializer
     init() {}
 
     // MARK: - Public Methods
 
     // ═══════════════════════════════════════
     // PURPOSE: 새 위치 추가 및 거리 계산
-    // PARAMETERS:
-    //   - location: 새로운 GPS 위치
-    // FUNCTIONALITY:
-    //   - 위치 유효성 검증
-    //   - 이전 위치와의 거리 계산
-    //   - 속도 필터링
-    //   - 누적 거리 업데이트
     // ═══════════════════════════════════════
     func addLocation(_ location: CLLocation) {
         // Step 1: 위치 유효성 검증

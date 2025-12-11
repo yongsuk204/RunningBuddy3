@@ -269,26 +269,20 @@ Example function list format:
 Example visual separator (applies to all code sections):
 ```swift
 // For functions
-// ═══════════════════════════════════════
 // PURPOSE: 함수의 주요 목적 설명
-// ═══════════════════════════════════════
 func functionName() {
     // Implementation
 }
 
 // For computed properties
-// ═══════════════════════════════════════
 // PURPOSE: 다음 버튼 제목 반환
-// ═══════════════════════════════════════
 private var nextButtonTitle: String {
     // Implementation
 }
 
 // For View properties (SwiftUI)
 // MARK: - Navigation Section
-// ═══════════════════════════════════════
 // PURPOSE: 네비게이션 버튼 섹션
-// ═══════════════════════════════════════
 private var navigationSection: some View {
     // Implementation
 }

@@ -26,13 +26,6 @@ class HeadingManager: NSObject, ObservableObject {
 
     private override init() {
         super.init()
-        setupLocationManager()
-    }
-
-    // MARK: - Setup
-
-    // Purpose: LocationManager 설정
-    private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.headingFilter = 5 // 5도 이상 변화 시에만 업데이트
     }
@@ -62,8 +55,8 @@ extension HeadingManager: CLLocationManagerDelegate {
 
     // Purpose: heading 업데이트 수신
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
-        // Step 1: trueHeading 사용 (자북 기준, GPS 필요)
-        // trueHeading이 유효하지 않으면 magneticHeading 사용 (자북 기준)
+        // Step 1: trueHeading 사용 (진북 기준, GPS 필요)
+        // trueHeading이 유효하지 않으면 magneticHeading 사용 (자북 기준, 방어적 fallback)
         if newHeading.trueHeading >= 0 {
             currentHeading = newHeading.trueHeading
         } else {
