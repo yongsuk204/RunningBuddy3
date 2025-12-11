@@ -685,3 +685,175 @@ iPhone: PhoneConnectivityManager receives → {
    - `DistanceCalculator.shared` - GPS distance (shared by workout & calibration)
    - `CadenceCalculator.shared` - Real-time cadence (shared by all workout views)
    - Single instance = consistent state across app
+
+## Future Development Plans
+
+### Watch Independence Roadmap (Phase 5: Offline Sync)
+
+**Current Status**: Watch is ~15-20% independent - primarily a **data collection device** with minimal processing. All meaningful calculations (cadence, distance, stride model) are iPhone-dependent.
+
+**Goal**: Enable Watch to measure running independently, store data locally, and sync to iPhone/Firestore when reconnected.
+
+#### Architecture Overview
+
+**1. Watch Standalone Operation**
+- Prerequisites: Phases 1-4 must be completed first
+  - Phase 1: Local cadence calculation on Watch (~300 LOC)
+  - Phase 2: Local distance calculation on Watch (~200 LOC)
+  - Phase 3: Stride model storage in Watch UserDefaults (~100 LOC)
+  - Phase 4: Tap-to-start workout control on Watch (~150 LOC)
+
+**2. Local Workout Storage on Watch**
+```swift
+// Data Model
+struct CompletedWorkout: Codable {
+    let id: UUID
+    let startTime: Date
+    let endTime: Date
+    let sensorDataPoints: [SensorData]      // Full sensor history (20Hz)
+    let gpsLocations: [GPSData]              // Full GPS route
+    let calculatedMetrics: WorkoutMetrics    // Cadence, distance, etc.
+    let syncStatus: SyncStatus               // .pending, .syncing, .completed
+}
+
+// Storage Layer (~200 LOC)
+class WatchWorkoutStorage {
+    // Save workout to Documents directory as JSON
+    func saveWorkout(_ workout: CompletedWorkout)
+
+    // Retrieve workouts awaiting sync
+    func getPendingWorkouts() -> [CompletedWorkout]
+
+    // Mark workout as synced (or delete local copy)
+    func markAsSynced(_ workoutId: UUID)
+}
+```
+
+**3. Automatic Sync on Reconnection**
+```swift
+// WatchConnectivityManager (Watch Side)
+func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState) {
+    if state == .activated && isReachable {
+        syncPendingWorkouts()  // Auto-trigger sync
+    }
+}
+
+private func syncPendingWorkouts() {
+    let pending = WatchWorkoutStorage.shared.getPendingWorkouts()
+
+    for workout in pending {
+        // Step 1: Send workout metadata
+        sendMessage(["type": "workout_sync", "data": workout.toDictionary()])
+
+        // Step 2: Send large sensor data in chunks (WatchConnectivity 65KB limit)
+        sendSensorDataInChunks(workout.sensorDataPoints)
+        sendGPSDataInChunks(workout.gpsLocations)
+    }
+}
+```
+
+**4. iPhone Firestore Upload**
+```swift
+// PhoneConnectivityManager (iPhone Side)
+func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    if message["type"] as? String == "workout_sync" {
+        Task {
+            let workout = CompletedWorkout.fromDictionary(message["data"])
+            try await uploadWorkoutToFirestore(workout)
+            sendMessage(["type": "sync_complete", "workoutId": workout.id.uuidString])
+        }
+    }
+}
+
+func uploadWorkoutToFirestore(_ workout: CompletedWorkout) async throws {
+    let db = Firestore.firestore()
+    try await db.collection("workouts").document(workout.id.uuidString).setData([
+        "userId": AuthenticationManager.shared.currentUser?.uid,
+        "startTime": workout.startTime,
+        "endTime": workout.endTime,
+        "totalDistance": workout.calculatedMetrics.distance,
+        "averageCadence": workout.calculatedMetrics.averageCadence,
+        "sensorData": workout.sensorDataPoints.map { $0.toDictionary() },
+        "gpsRoute": workout.gpsLocations.map { $0.toDictionary() }
+    ])
+}
+```
+
+**5. Chunked Data Transfer (~300 LOC)**
+```swift
+// Handle WatchConnectivity 65KB message size limit
+// 20Hz × 60s = 1,200 sensor points = ~120KB (exceeds limit)
+func sendSensorDataInChunks(_ data: [SensorData], chunkSize: Int = 100) {
+    let chunks = data.chunked(into: chunkSize)
+
+    for (index, chunk) in chunks.enumerated() {
+        sendMessage([
+            "type": "sensor_chunk",
+            "index": index,
+            "total": chunks.count,
+            "data": chunk.map { $0.toDictionary() }
+        ])
+        Thread.sleep(forTimeInterval: 0.1)  // Throttle transmission
+    }
+}
+
+// iPhone reassembles chunks
+private var chunkBuffer: [Int: [SensorData]] = [:]
+func handleSensorChunk(_ message: [String: Any]) {
+    let index = message["index"] as! Int
+    let total = message["total"] as! Int
+    chunkBuffer[index] = message["data"] as! [SensorData]
+
+    if chunkBuffer.count == total {
+        let completeSensorData = chunkBuffer.sorted { $0.key < $1.key }
+                                            .flatMap { $0.value }
+        processSensorData(completeSensorData)
+        chunkBuffer.removeAll()
+    }
+}
+```
+
+#### Benefits
+
+✅ **Fully Offline Running** - No iPhone required during workout
+✅ **Zero Data Loss** - Local storage ensures all data persists
+✅ **Automatic Sync** - Background sync when iPhone reconnects
+✅ **Battery Efficient** - No real-time transmission overhead
+✅ **Network Efficient** - Batch upload reduces Firestore operations
+
+#### Technical Considerations
+
+**Data Size Management**:
+- 1 minute running ≈ 1,200 sensor points × 100 bytes = 120KB
+- 30 minute run ≈ 3.6MB raw sensor data
+- Use compression or summary statistics for long workouts
+
+**Sync Reliability**:
+- Implement retry logic with exponential backoff
+- Handle iPhone disconnection mid-sync (resume from last chunk)
+- Prioritize metadata sync (workout summary) before sensor details
+
+**User Experience**:
+- Show sync progress indicator on Watch
+- Display "N workouts pending sync" badge
+- Allow manual sync trigger from Watch UI
+
+**Storage Limits**:
+- Apple Watch has limited storage (~5-32GB depending on model)
+- Implement automatic cleanup after successful sync
+- Warn user if storage < 500MB remaining
+
+#### Implementation Checklist
+
+- [ ] Complete Phases 1-4 (Watch calculation independence)
+- [ ] Implement `WatchWorkoutStorage` with FileManager persistence
+- [ ] Add chunked data transmission for large payloads
+- [ ] Build sync queue with retry logic
+- [ ] Create Firestore workout schema and upload logic
+- [ ] Add UI indicators for sync status
+- [ ] Test offline → online transition scenarios
+- [ ] Implement storage quota monitoring
+
+**Estimated Effort**: ~800-1000 LOC, 2-3 weeks development + testing
+
+**Reference Pattern**: Apple Fitness app, Strava Watch app (industry standard for offline workout sync)
