@@ -3,7 +3,7 @@ import Firebase
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
-
+// 다시 시작하기
 // Firebase 서비스들을 중앙 집중식으로 관리하는 싱글톤 클래스
 class FirebaseManager {
 
